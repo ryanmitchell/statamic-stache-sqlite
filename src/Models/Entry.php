@@ -122,7 +122,7 @@ class Entry extends Model
         $table->string('blueprint');
         $table->string('collection');
         $table->json('data');
-        $table->datetime('date')->nullable();
+        $table->date('date')->nullable();
         $table->boolean('published');
         $table->string('site');
         $table->string('slug');

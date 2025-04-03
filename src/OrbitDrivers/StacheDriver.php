@@ -119,8 +119,8 @@ class StacheDriver
 
         return array_merge(
             collect($columns)->mapWithKeys(fn ($value) => [$value => ''])->all(),
-            $model ? $model->fromPath($file->getPathname()) : [],
             collect($yamlData)->only($columns)->all(),
+            $model ? $model->fromPath($file->getPathname()) : [],
             ['data' => collect($yamlData)->except($columns)->all()],
         );
     }

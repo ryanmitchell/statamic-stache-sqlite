@@ -52,7 +52,7 @@ trait Flatfile
 
             // We need to refresh the model so that we can get all of the columns
             // and default values from the SQLite cache.
-            $model->refresh();
+            //$model->refresh();
 
             $driver = Orbit::driver(static::getOrbitalDriver());
 
