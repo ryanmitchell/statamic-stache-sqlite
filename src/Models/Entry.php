@@ -14,7 +14,7 @@ class Entry extends Model
     use Orbital;
 
 
-    public static $driver = 'md';
+    public static $driver = 'stache';
 
     protected function casts(): array
     {

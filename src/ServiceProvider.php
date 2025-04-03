@@ -2,6 +2,7 @@
 
 namespace Thoughtco\StatamicStacheSqlite;
 
+use Orbit\Facades\Orbit;
 use Statamic\Contracts\Entries\EntryRepository as EntryRepositoryContract;
 use Statamic\Providers\AddonServiceProvider;
 use Statamic\Statamic;
@@ -10,6 +11,10 @@ class ServiceProvider extends AddonServiceProvider
 {
     public function bootAddon()
     {
+        Orbit::extend('stache', function ($app) {
+            return new OrbitDrivers\StacheDriver($app);
+        });
+
         $this->registerEntryRepository();
     }
 
