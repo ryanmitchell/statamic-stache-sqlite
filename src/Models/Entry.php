@@ -1,20 +1,21 @@
 <?php
 
-namespace ThoughtCo\StatamicStacheSqlite\Models;
+namespace Thoughtco\StatamicStacheSqlite\Models;
 
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
-use Orbit\Concerns\Orbital;
 use Statamic\Contracts\Entries\Entry as EntryContract;
+use Statamic\Facades\Stache;
 use Statamic\Support\Str;
+use Thoughtco\StatamicStacheSqlite\Models\Concerns\Flatfile;
 
 class Entry extends Model
 {
-    use Orbital;
-
+    use Flatfile;
 
     public static $driver = 'stache';
+    public string $path = '';
 
     protected function casts(): array
     {
@@ -25,7 +26,12 @@ class Entry extends Model
 
     public function getKeyName()
     {
-        return 'id';
+        return 'path';
+    }
+
+    public static function getOrbitalPath()
+    {
+        return rtrim(Stache::store('entries')->directory(), '/');
     }
 
     public function getIncrementing()
@@ -38,13 +44,17 @@ class Entry extends Model
         $contract = app(EntryContract::class)::make();
 
         foreach ($this->getAttributes() as $key => $value) {
-            if ($key == 'content' || $key == 'created_at' || $key == 'updated_at') { // remove once we make a stache driver
+            if ($key == 'created_at' || $key == 'updated_at') {
                 continue;
             }
 
             if ($value !== null) {
-                if ($key == 'data') { // remove once we make a stache driver that honours schema
+                if ($key == 'data' && is_string($value)) {
                     $value = json_decode($value, true);
+                }
+
+                if ($key == 'date' && ! $value) {
+                    continue;
                 }
 
                 $contract->$key($value);
@@ -54,20 +64,53 @@ class Entry extends Model
         return $contract;
     }
 
+    public function fromPath(string $path)
+    {
+        $path = Str::after($path, static::getOrbitalPath().DIRECTORY_SEPARATOR);
+
+        $collectionHandle = Str::beforeLast($path, DIRECTORY_SEPARATOR);
+
+        $data = [
+            'collection' => $collectionHandle,
+            'site' => 'default',
+        ];
+
+        // need to date, site etc
+        $slug = Str::of($path)->after($collectionHandle.DIRECTORY_SEPARATOR)->before('.md');
+
+        if ($slug->contains(DIRECTORY_SEPARATOR)) {
+            $data['site'] = (string) $slug->before(DIRECTORY_SEPARATOR);
+            $slug = $slug->after(DIRECTORY_SEPARATOR);
+        }
+
+        if ($slug->contains('.')) {
+            $data['date'] = (string) $slug->before('.');
+            $slug = $slug->after('.');
+        }
+
+        $data['slug'] = (string) $slug;
+
+        return $data;
+    }
+
     public function fromContract(EntryContract $entry)
     {
         foreach (['id', 'data', 'date', 'published', 'slug'] as $key) {
             $this->$key = $entry->{$key}();
         }
 
+        $collection = $entry->collection();
+
         $this->blueprint = $entry->blueprint()->handle();
-        $this->collection = $entry->collection()->handle();
+        $this->collection = $collection->handle();
         $this->site = $entry->locale();
-        ray ($this->site);
 
         if (! $this->id) {
             $this->id = Str::uuid()->toString();
         }
+
+        $this->path = Str::of($entry->buildPath())->after(static::getOrbitalPath().DIRECTORY_SEPARATOR)->beforeLast('.md');
+        ray($this->path);
 
         return $this;
     }
@@ -75,6 +118,7 @@ class Entry extends Model
     public static function schema(Blueprint $table)
     {
         $table->string('id')->unique();
+        //$table->string('path');
         $table->string('blueprint');
         $table->string('collection');
         $table->json('data');

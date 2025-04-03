@@ -6,14 +6,13 @@ use BackedEnum;
 use FilesystemIterator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use Orbit\Contracts\Driver as DriverContract;
 use Orbit\Facades\Orbit;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
 use Statamic\Facades\YAML;
 
-class StacheDriver implements DriverContract
+class StacheDriver
 {
     public function shouldRestoreCache(string $directory): bool
     {
@@ -32,11 +31,11 @@ class StacheDriver implements DriverContract
 
     public function save(Model $model, string $directory): bool
     {
-        if ($model->wasChanged($model->getKeyName())) {
-            unlink($this->filepath($directory, $model->getOriginal($model->getKeyName())));
+        if ($model->wasChanged($model->getPathKeyName())) {
+            unlink($this->filepath($directory, $model->getOriginal($model->getPathKeyName())));
         }
 
-        $path = $this->filepath($directory, $model->getKey());
+        $path = $this->filepath($directory, $model->{$model->getPathKeyName()});
 
         file_put_contents($path, $this->dumpContent($model));
 
@@ -50,10 +49,12 @@ class StacheDriver implements DriverContract
         return true;
     }
 
-    public function all(string $directory): Collection
+    public function all(Model $model, string $directory): Collection
     {
         $collection = Collection::make();
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
+
+        $columns = $model->resolveConnection()->getSchemaBuilder()->getColumnListing($model->getTable());
 
         /** @var \SplFileInfo $file */
         foreach ($iterator as $file) {
@@ -65,11 +66,11 @@ class StacheDriver implements DriverContract
                 continue;
             }
 
-            if ($file->getExtension() !== $this->extension()) {
+            if ($file->getExtension() !==  'md') {
                 continue;
             }
 
-            $collection->push(array_merge($this->parseContent($file), [
+            $collection->push(array_merge($this->parseContent($file, $columns, $model), [
                 'file_path_read_from' => $file->getRealPath(),
             ]));
         }
@@ -79,7 +80,7 @@ class StacheDriver implements DriverContract
 
     public function filepath(string $directory, string $key): string
     {
-        return $directory . DIRECTORY_SEPARATOR . $key . '.' . $this->extension();
+        return $directory . DIRECTORY_SEPARATOR . $key . '.md';
     }
 
     protected function getModelAttributes(Model $model)
@@ -100,19 +101,27 @@ class StacheDriver implements DriverContract
     protected function dumpContent(Model $model): string
     {
         $matter = array_filter($this->getModelAttributes($model), function ($value, $key) {
-            return $key !== 'content' && $value !== null;
+            return $value !== null;
         }, ARRAY_FILTER_USE_BOTH);
 
-        return YAML::dump($matter);
+        if ($data = $matter['data'] ?? false) {
+            unset($matter['data']);
+
+            $matter = array_merge($matter, $data);
+        }
+
+        return YAML::dumpFrontMatter($matter); // need to handle content
     }
 
-    protected function parseContent(SplFileInfo $file): array
+    protected function parseContent(SplFileInfo $file, array $columns = [], Model $model = null): array
     {
-        return YAML::file($file->getPathname())->parse();
-    }
+        $yamlData = YAML::file($file->getPathname())->parse();
 
-    protected function extension(): string
-    {
-        return 'md';
+        return array_merge(
+            collect($columns)->mapWithKeys(fn ($value) => [$value => ''])->all(),
+            $model ? $model->fromPath($file->getPathname()) : [],
+            collect($yamlData)->only($columns)->all(),
+            ['data' => collect($yamlData)->except($columns)->all()],
+        );
     }
 }
