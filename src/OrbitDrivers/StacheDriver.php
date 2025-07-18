@@ -16,8 +16,6 @@ class StacheDriver
 {
     public function shouldRestoreCache(string $directory): bool
     {
-        return true;
-
         $databaseLastUpdated = filemtime(Orbit::getDatabasePath());
 
         foreach (new FilesystemIterator($directory) as $file) {
@@ -44,7 +42,7 @@ class StacheDriver
 
     public function delete(Model $model, string $directory): bool
     {
-        unlink($this->filepath($directory, $model->getKey()));
+        unlink($this->filepath($directory, $model->{$model->getPathKeyName()}));
 
         return true;
     }
@@ -104,13 +102,17 @@ class StacheDriver
             return $value !== null;
         }, ARRAY_FILTER_USE_BOTH);
 
-        if ($data = $matter['data'] ?? false) {
+        if ($data = ($matter['data'] ?? false)) {
             unset($matter['data']);
 
             $matter = array_merge($matter, $data);
         }
 
-        return YAML::dumpFrontMatter($matter); // need to handle content
+        if ($content = ($matter['content'] ?? null)) {
+            unset($matter['content']);
+        }
+
+        return YAML::dumpFrontMatter($matter, $content);
     }
 
     protected function parseContent(SplFileInfo $file, array $columns = [], Model $model = null): array

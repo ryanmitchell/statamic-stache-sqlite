@@ -110,7 +110,6 @@ class Entry extends Model
         }
 
         $this->path = Str::of($entry->buildPath())->after(static::getOrbitalPath().DIRECTORY_SEPARATOR)->beforeLast('.md');
-        ray($this->path);
 
         return $this;
     }

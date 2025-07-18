@@ -29,6 +29,10 @@ class EntryRepository extends \Statamic\Stache\Repositories\EntryRepository
 
     public function delete($entry)
     {
-        $entry->model()?->delete();
+        $model = $entry->model() ?? EntryModel::make();
+
+        $model
+            ->fromContract($entry)
+            ->delete();
     }
 }
