@@ -7,15 +7,15 @@ use ThoughtCo\StatamicStacheSqlite\Models\Entry as EntryModel;
 
 class Entry extends FileEntry {
 
-    private ?EntryModel $entry = null;
+    private ?EntryModel $model = null;
 
-    public function model($entry = null)
+    public function model($model = null)
     {
-        if (! $entry) {
-            return $this->entry;
+        if (! $model) {
+            return $this->model;
         }
 
-        $this->entry = $entry;
+        $this->model = $model;
 
         return $this;
     }
