@@ -9,10 +9,7 @@ use Illuminate\Support\Collection;
 use Orbit\Facades\Orbit;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
-use SplFileInfo;
-use Statamic\Facades\File;
 use Statamic\Facades\Stache;
-use Statamic\Facades\YAML;
 
 class StacheDriver
 {
@@ -42,7 +39,7 @@ class StacheDriver
 
         $path = $this->filepath($directory, $model->{$model->getPathKeyName()});
 
-        file_put_contents($path, $this->dumpContent($model));
+        file_put_contents($path, $model->fileContents());
 
         return true;
     }
@@ -108,35 +105,4 @@ class StacheDriver
             })
             ->toArray();
     }
-
-    protected function dumpContent(Model $model): string
-    {
-        $matter = array_filter($this->getModelAttributes($model), function ($value, $key) {
-            return $value !== null;
-        }, ARRAY_FILTER_USE_BOTH);
-
-        if ($data = ($matter['data'] ?? false)) {
-            unset($matter['data']);
-
-            $matter = array_merge($matter, $data);
-        }
-
-        if ($content = ($matter['content'] ?? null)) {
-            unset($matter['content']);
-        }
-
-        return YAML::dumpFrontMatter($matter, $content);
-    }
-
-    //    protected function parseContent(SplFileInfo $file, array $columns = [], ?Model $model = null): array
-    //    {
-    //        $yamlData = YAML::file($file->getPathname())->parse();
-    //
-    //        return array_merge(
-    //            collect($columns)->mapWithKeys(fn ($value) => [$value => ''])->all(),
-    //            collect($yamlData)->only($columns)->all(),
-    //            $model ? $model->fromPath($file->getPathname()) : [],
-    //            ['data' => collect($yamlData)->except($columns)->all()],
-    //        );
-    //    }
 }

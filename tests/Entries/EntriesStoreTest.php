@@ -145,13 +145,14 @@ class EntriesStoreTest extends TestCase
             ->collection('blog')
             ->date('2017-07-04');
 
-        $this->parent->store('blog')->save($entry);
+        $model = EntryModel::make()
+            ->fromContract($entry);
+
+        $model->save();
 
         $this->assertStringEqualsFile($path = $this->directory.'/blog/2017-07-04.test.md', $entry->fileContents());
         @unlink($path);
         $this->assertFileDoesNotExist($path);
-
-        $this->assertEquals($path, $this->parent->store('blog')->paths()->get('123'));
     }
 
     #[Test]

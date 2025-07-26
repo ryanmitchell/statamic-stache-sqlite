@@ -195,4 +195,34 @@ class Entry extends Model
         $table->string('site');
         $table->string('slug');
     }
+
+    public function fileData()
+    {
+        //        $origin = $this->origin;
+        //        $blueprint = $this->blueprint;
+        //
+        //        if ($origin && $this->blueprint()->handle() === $origin->blueprint()->handle()) {
+        //            $blueprint = null;
+        //        }
+
+        $array = Arr::removeNullValues([
+            'id' => $this->id,
+            'origin' => $this->origin,
+            'published' => $this->published === false ? false : null,
+            'blueprint' => $this->blueprint,
+        ]);
+
+        $data = $this->data->all();
+
+        if (! $this->origin) {
+            $data = Arr::removeNullValues($data);
+        }
+
+        return array_merge($array, $data);
+    }
+
+    public function fileExtension()
+    {
+        return 'md';
+    }
 }

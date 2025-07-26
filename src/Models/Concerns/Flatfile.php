@@ -15,6 +15,8 @@ use Orbit\Facades\Orbit;
 use Orbit\Models\OrbitMeta;
 use Orbit\Support;
 use ReflectionClass;
+use Statamic\Facades\YAML;
+use Statamic\Support\Arr;
 
 trait Flatfile
 {
@@ -316,5 +318,42 @@ trait Flatfile
         }
 
         return $result;
+    }
+
+    public function fileContents()
+    {
+        // This method should be clever about what contents to output depending on the
+        // file type used. Right now it's assuming markdown. Maybe you'll want to
+        // save JSON, etc. TODO: Make it smarter when the time is right.
+
+        $data = $this->fileData();
+
+        if ($this->shouldRemoveNullsFromFileData()) {
+            $data = Arr::removeNullValues($data);
+        }
+
+        if ($this->fileExtension() === 'yaml') {
+            return YAML::dump($data);
+        }
+
+        if (! Arr::has($data, 'content')) {
+            return YAML::dumpFrontMatter($data);
+        }
+
+        $content = $data['content'];
+
+        return $content === null
+            ? YAML::dump($data)
+            : YAML::dumpFrontMatter(Arr::except($data, 'content'), $content);
+    }
+
+    protected function shouldRemoveNullsFromFileData()
+    {
+        return true;
+    }
+
+    public function fileExtension()
+    {
+        return 'yaml';
     }
 }
