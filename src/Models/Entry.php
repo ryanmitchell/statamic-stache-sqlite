@@ -26,8 +26,6 @@ class Entry extends Model
 
     public static $driver = 'stache';
 
-    public string $path = '';
-
     protected function casts(): array
     {
         return [
@@ -76,7 +74,7 @@ class Entry extends Model
             ->toArray();
 
         foreach ($attributes as $key => $value) {
-            if ($key == 'created_at' || $key == 'updated_at') {
+            if (in_array($key, ['created_at', 'updated_at', 'file_path_read_from', 'path'])) {
                 continue;
             }
 
@@ -151,23 +149,32 @@ class Entry extends Model
 
     public function fromContract(EntryContract $entry)
     {
+        $model = $this;
+        if (($id = $entry->id()) && ! $this->id) {
+            $model = $this->newQuery()->find($id);
+        }
+
+        if (! $model) {
+            $model = $this;
+        }
+
         foreach (['id', 'data', 'date', 'published', 'slug'] as $key) {
-            $this->$key = $entry->{$key}();
+            $model->$key = $entry->{$key}();
         }
 
         $collection = $entry->collection();
 
-        $this->blueprint = $entry->blueprint()->handle();
-        $this->collection = $collection->handle();
-        $this->site = $entry->locale();
+        $model->blueprint = $entry->blueprint()->handle();
+        $model->collection = $collection->handle();
+        $model->site = $entry->locale();
 
-        if (! $this->id) {
-            $this->id = Str::uuid()->toString();
+        if (! $model->id) {
+            $model->id = Str::uuid()->toString();
         }
 
-        $this->path = Str::of($entry->buildPath())->after(static::getOrbitalPath().DIRECTORY_SEPARATOR)->beforeLast('.md');
+        $model->path = Str::of($entry->buildPath())->after(static::getOrbitalPath().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension());
 
-        return $this;
+        return $model;
     }
 
     public function makeItemFromFile($path, $contents)
@@ -216,7 +223,8 @@ class Entry extends Model
     public static function schema(Blueprint $table)
     {
         $table->string('id')->unique();
-        // $table->string('path');
+        $table->string('file_path_read_from')->nullable();
+        $table->string('path');
         $table->string('blueprint');
         $table->string('collection');
         $table->json('data')->nullable();

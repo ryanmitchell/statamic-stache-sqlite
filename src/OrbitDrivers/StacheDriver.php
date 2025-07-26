@@ -10,7 +10,11 @@ use Illuminate\Support\Collection;
 use Orbit\Facades\Orbit;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
+use Statamic\Entries\GetSuffixFromPath;
+use Statamic\Entries\RemoveSuffixFromPath;
+use Statamic\Facades\File;
 use Statamic\Facades\Stache;
+use Statamic\Support\Str;
 
 class StacheDriver
 {
@@ -34,11 +38,11 @@ class StacheDriver
 
     public function save(Model $model, string $directory): bool
     {
-        if ($model->wasChanged($model->getPathKeyName())) {
-            unlink($this->filepath($directory, $model->getOriginal($model->getPathKeyName())));
-        }
+        $path = $this->filepath($directory, $model);
 
-        $path = $this->filepath($directory, $model->{$model->getPathKeyName()});
+        if ($model->file_path_read_from && ($path != $model->file_path_read_from)) {
+            unlink($model->file_path_read_from);
+        }
 
         file_put_contents($path, $model->fileContents());
 
@@ -47,7 +51,7 @@ class StacheDriver
 
     public function delete(Model $model, string $directory): bool
     {
-        unlink($this->filepath($directory, $model->{$model->getPathKeyName()}));
+        unlink($this->filepath($directory, $model));
 
         return true;
     }
@@ -83,6 +87,7 @@ class StacheDriver
             $row = array_merge(
                 $data,
                 [
+                    'path' => $file->getRealPath(),
                     'file_path_read_from' => $file->getRealPath(),
                 ]
             );
@@ -93,9 +98,42 @@ class StacheDriver
         return $collection;
     }
 
-    public function filepath(string $directory, string $key): string
+    public function filepath(string $directory, Model $model): string
     {
-        return $directory.DIRECTORY_SEPARATOR.$key.'.md';
+        $basePath = $directory.DIRECTORY_SEPARATOR.$model->{$model->getPathKeyName()}.'.'.$model->fileExtension();
+        $itemPath = $model->file_path_read_from ?? $basePath;
+
+        $suffixlessPath = (new RemoveSuffixFromPath)($itemPath);
+
+        if ($basePath !== $suffixlessPath) {
+            // If the path should change (e.g. a new slug or date) then
+            // reset the counter to 1 so the suffix doesn't get maintained.
+            $num = 0;
+        } else {
+            // Otherwise, start from whatever the suffix was.
+            $num = (new GetSuffixFromPath)($itemPath) ?? 0;
+        }
+
+        while (true) {
+            $ext = '.'.$model->fileExtension();
+            $filename = Str::beforeLast($basePath, $ext);
+            $suffix = $num ? ".$num" : '';
+            $path = "{$filename}{$suffix}{$ext}";
+
+            if (! $contents = File::get($path)) {
+                break;
+            }
+
+            $itemFromDisk = $model->makeItemFromFile($path, $contents);
+
+            if ($model->id == $itemFromDisk->id()) {
+                break;
+            }
+
+            $num++;
+        }
+
+        return $path;
     }
 
     protected function getModelAttributes(Model $model)

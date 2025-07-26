@@ -68,7 +68,7 @@ trait Flatfile
             );
 
             if (static::getOrbitalPathPattern() !== null && $driver instanceof FileDriver) {
-                $path = $driver->filepath($directory, $model->getPath());
+                $path = $driver->filepath($directory, $model);
 
                 OrbitMeta::query()->updateOrCreate([
                     'orbital_type' => $model::class,
@@ -96,7 +96,7 @@ trait Flatfile
             );
 
             if (static::getOrbitalPathPattern() !== null && $driver instanceof FileDriver) {
-                $path = $driver->filepath($directory, $model->getKey());
+                $path = $driver->filepath($directory, $model);
                 $meta = OrbitMeta::forOrbital($model);
 
                 if ($meta->file_path_read_from !== $path) {

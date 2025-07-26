@@ -2,6 +2,7 @@
 
 namespace Entries;
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\Attributes\Test;
 use Statamic\Contracts\Entries\Entry;
@@ -15,6 +16,8 @@ use Thoughtco\StatamicStacheSqlite\OrbitDrivers\StacheDriver;
 
 class EntriesStoreTest extends TestCase
 {
+    use RefreshDatabase;
+
     private $parent;
 
     private $directory;
@@ -43,18 +46,18 @@ class EntriesStoreTest extends TestCase
             $dir.'/alphabetical/alpha.md',
             $dir.'/alphabetical/bravo.md',
             $dir.'/alphabetical/zulu.md',
-        ])->sort()->values()->all(), $files->where('collection', 'alphabetical')->pluck('file_path_read_from')->sort()->values()->all());
+        ])->sort()->values()->all(), $files->where('collection', 'alphabetical')->pluck('path')->sort()->values()->all());
 
         $this->assertEquals(collect([
             $dir.'/blog/2017-25-12.christmas.md',
             $dir.'/blog/2018-07-04.fourth-of-july.md',
-        ])->sort()->values()->all(), $files->where('collection', 'blog')->pluck('file_path_read_from')->sort()->values()->all());
+        ])->sort()->values()->all(), $files->where('collection', 'blog')->pluck('path')->sort()->values()->all());
 
         $this->assertEquals(collect([
             $dir.'/numeric/one.md',
             $dir.'/numeric/two.md',
             $dir.'/numeric/three.md',
-        ])->sort()->values()->all(), $files->where('collection', 'numeric')->pluck('file_path_read_from')->sort()->values()->all());
+        ])->sort()->values()->all(), $files->where('collection', 'numeric')->pluck('path')->sort()->values()->all());
 
         $this->assertEquals(collect([
             $dir.'/pages/about.md',
@@ -63,7 +66,7 @@ class EntriesStoreTest extends TestCase
             $dir.'/pages/blog.md',
             $dir.'/pages/contact.md',
             $dir.'/pages/home.md',
-        ])->sort()->values()->all(), $files->where('collection', 'pages')->pluck('file_path_read_from')->sort()->values()->all());
+        ])->sort()->values()->all(), $files->where('collection', 'pages')->pluck('path')->sort()->values()->all());
     }
 
     #[Test]
@@ -164,10 +167,7 @@ class EntriesStoreTest extends TestCase
             ->collection('blog')
             ->date('2017-07-04');
 
-        $model = EntryModel::make()
-            ->fromContract($entry);
-
-        $model->save();
+        EntryModel::make()->fromContract($entry)->save();
 
         $this->assertStringEqualsFile($initialPath = $this->directory.'/blog/2017-07-04.test.md', $entry->fileContents());
 
@@ -187,19 +187,20 @@ class EntriesStoreTest extends TestCase
         file_put_contents($existingPath, $existingContents = "---\nid: existing-id\n---");
 
         $entry = Facades\Entry::make()->id('new-id')->slug('test')->collection('blog')->date('2017-07-04');
-        $this->parent->store('blog')->save($entry);
+
+        EntryModel::make()->fromContract($entry)->save();
+
         $newPath = $this->directory.'/blog/2017-07-04.test.1.md';
         $this->assertStringEqualsFile($existingPath, $existingContents);
         $this->assertStringEqualsFile($newPath, $entry->fileContents());
 
         $anotherEntry = Facades\Entry::make()->id('another-new-id')->slug('test')->collection('blog')->date('2017-07-04');
-        $this->parent->store('blog')->save($anotherEntry);
+
+        EntryModel::make()->fromContract($anotherEntry)->save();
+
         $anotherNewPath = $this->directory.'/blog/2017-07-04.test.2.md';
         $this->assertStringEqualsFile($existingPath, $existingContents);
         $this->assertStringEqualsFile($anotherNewPath, $anotherEntry->fileContents());
-
-        $this->assertEquals($newPath, $this->parent->store('blog')->paths()->get('new-id'));
-        $this->assertEquals($anotherNewPath, $this->parent->store('blog')->paths()->get('another-new-id'));
 
         @unlink($newPath);
         @unlink($anotherNewPath);
@@ -221,11 +222,10 @@ class EntriesStoreTest extends TestCase
             ->collection('blog')
             ->date('2017-07-04');
 
-        $this->parent->store('blog')->save($entry);
+        EntryModel::make()->fromContract($entry)->save();
 
         $pathWithSuffix = $this->directory.'/blog/2017-07-04.test.1.md';
         $this->assertStringEqualsFile($existingPath, $entry->fileContents());
-        $this->assertEquals($existingPath, $this->parent->store('blog')->paths()->get('the-id'));
 
         @unlink($existingPath);
         $this->assertFileDoesNotExist($pathWithSuffix);
@@ -246,15 +246,13 @@ class EntriesStoreTest extends TestCase
             ->collection('blog')
             ->date('2017-07-04');
 
-        $this->parent->store('blog')->save($entry);
+        EntryModel::make()->fromContract($entry)->save();
 
         $pathWithIncrementedSuffix = $this->directory.'/blog/2017-07-04.test.2.md';
         $this->assertStringEqualsFile($suffixedExistingPath, $entry->fileContents());
         @unlink($suffixedExistingPath);
         $this->assertFileDoesNotExist($pathWithIncrementedSuffix);
         $this->assertFileDoesNotExist($suffixedExistingPath);
-
-        $this->assertEquals($suffixedExistingPath, $this->parent->store('blog')->paths()->get('another-id'));
     }
 
     #[Test]
@@ -263,15 +261,17 @@ class EntriesStoreTest extends TestCase
         $existingPath = $this->directory.'/blog/2017-07-04.test.1.md';
         $suffixlessPath = $this->directory.'/blog/2017-07-04.test.md';
 
-        file_put_contents($existingPath, 'id: 123');
-        $entry = $this->parent->store('blog')->makeItemFromFile($existingPath, file_get_contents($existingPath));
+        file_put_contents($existingPath, 'id: 456');
 
-        $this->parent->store('blog')->save($entry);
+        $entry = (new EntryModel)->makeItemFromFile(
+            $existingPath,
+            file_get_contents($existingPath)
+        );
+
+        EntryModel::make()->fromContract($entry)->save();
 
         $this->assertStringEqualsFile($existingPath, $entry->fileContents());
         $this->assertFileDoesNotExist($suffixlessPath);
-
-        $this->assertEquals($existingPath, $this->parent->store('blog')->paths()->get('123'));
 
         @unlink($existingPath);
         $this->assertFileDoesNotExist($existingPath);
@@ -286,17 +286,19 @@ class EntriesStoreTest extends TestCase
         $existingPath = $this->directory.'/blog/2017-07-04.test.1.md';
         $newPath = $this->directory.'/blog/2017-07-04.updated.md';
 
-        file_put_contents($existingPath, 'id: 123');
-        $entry = $this->parent->store('blog')->makeItemFromFile($existingPath, file_get_contents($existingPath));
+        file_put_contents($existingPath, 'id: 456');
+
+        $entry = (new EntryModel)->makeItemFromFile(
+            $existingPath,
+            file_get_contents($existingPath)
+        );
 
         $entry->slug('updated');
 
-        $this->parent->store('blog')->save($entry);
+        EntryModel::make()->fromContract($entry)->save();
 
         $this->assertStringEqualsFile($newPath, $entry->fileContents());
         $this->assertFileDoesNotExist($existingPath);
-
-        $this->assertEquals($newPath, $this->parent->store('blog')->paths()->get('123'));
 
         @unlink($newPath);
         $this->assertFileDoesNotExist($newPath);
