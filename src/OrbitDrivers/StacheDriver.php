@@ -5,6 +5,7 @@ namespace Thoughtco\StatamicStacheSqlite\OrbitDrivers;
 use BackedEnum;
 use FilesystemIterator;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Orbit\Facades\Orbit;
 use RecursiveDirectoryIterator;
@@ -72,9 +73,15 @@ class StacheDriver
                 continue;
             }
 
+            $data = $model->newInstance()->fromPath($file->getPathname());
+
+            if (! $data) {
+                continue;
+            }
+
             // let the model determine how to parse the data
             $row = array_merge(
-                $model->fromPath($file->getPathname()),
+                $data,
                 [
                     'file_path_read_from' => $file->getRealPath(),
                 ]
@@ -99,6 +106,10 @@ class StacheDriver
 
                 if ($value instanceof BackedEnum) {
                     return $value->value;
+                }
+
+                if ($value instanceof Carbon) {
+                    return $value->toIso8601String();
                 }
 
                 return $value;

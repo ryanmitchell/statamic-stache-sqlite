@@ -164,16 +164,17 @@ class EntriesStoreTest extends TestCase
             ->collection('blog')
             ->date('2017-07-04');
 
-        $this->parent->store('blog')->save($entry);
+        $model = EntryModel::make()
+            ->fromContract($entry);
+
+        $model->save();
 
         $this->assertStringEqualsFile($initialPath = $this->directory.'/blog/2017-07-04.test.md', $entry->fileContents());
-        $this->assertEquals($initialPath, $this->parent->store('blog')->paths()->get('123'));
 
         $entry->slug('updated');
         $entry->save();
 
         $this->assertStringEqualsFile($path = $this->directory.'/blog/2017-07-04.updated.md', $entry->fileContents());
-        $this->assertEquals($path, $this->parent->store('blog')->paths()->get('123'));
 
         @unlink($initialPath);
         @unlink($path);

@@ -34,9 +34,11 @@ class EntryQueryBuilder extends EloquentQueryBuilder implements QueryBuilder
     protected function transform($items, $columns = [])
     {
         $items = EntryCollection::make($items)->map(function ($model) use ($columns) {
-            return $model->makeContract()
+            $entry = $model->makeContract()
                 ->model($model)
                 ->selectedQueryColumns($this->selectedQueryColumns ?? $columns);
+
+            return $entry;
         });
 
         return Entry::applySubstitutions($items);

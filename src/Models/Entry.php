@@ -3,8 +3,10 @@
 namespace Thoughtco\StatamicStacheSqlite\Models;
 
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\Entries\GetDateFromPath;
@@ -20,6 +22,7 @@ use Thoughtco\StatamicStacheSqlite\Models\Concerns\Flatfile;
 class Entry extends Model
 {
     use Flatfile;
+    use HasUuids;
 
     public static $driver = 'stache';
 
@@ -29,12 +32,13 @@ class Entry extends Model
     {
         return [
             'data' => AsArrayObject::class,
+            'date' => 'datetime',
         ];
     }
 
     public function getKeyName()
     {
-        return 'path';
+        return 'id';
     }
 
     public static function getOrbitalPath()
@@ -51,7 +55,27 @@ class Entry extends Model
     {
         $contract = app(EntryContract::class)::make();
 
-        foreach ($this->getAttributes() as $key => $value) {
+        $attributes = collect($this->getAttributes())
+            ->map(function ($_, $key) {
+                $value = $this->{$key};
+
+                if ($value instanceof \BackedEnum) {
+                    return $value->value;
+                }
+
+                if ($value instanceof Carbon) {
+                    if ($this->getRawOriginal($key) == '') {
+                        return null;
+                    }
+
+                    return $value;
+                }
+
+                return $value;
+            })
+            ->toArray();
+
+        foreach ($attributes as $key => $value) {
             if ($key == 'created_at' || $key == 'updated_at') {
                 continue;
             }
@@ -61,8 +85,10 @@ class Entry extends Model
                     $value = json_decode($value, true);
                 }
 
-                if ($key == 'date' && ! $value) {
-                    continue;
+                if ($key == 'date') {
+                    if (! $value) {
+                        continue;
+                    }
                 }
 
                 $contract->$key($value);
@@ -82,6 +108,10 @@ class Entry extends Model
         $path = Str::after($originalPath, static::getOrbitalPath().DIRECTORY_SEPARATOR);
 
         $collectionHandle = Str::before($path, DIRECTORY_SEPARATOR);
+
+        if ($collectionHandle == $path) {
+            return;
+        }
 
         $data = [
             'collection' => $collectionHandle,
@@ -190,7 +220,7 @@ class Entry extends Model
         $table->string('blueprint');
         $table->string('collection');
         $table->json('data')->nullable();
-        $table->date('date')->nullable();
+        $table->datetime('date')->nullable();
         $table->boolean('published')->default(true);
         $table->string('site');
         $table->string('slug');

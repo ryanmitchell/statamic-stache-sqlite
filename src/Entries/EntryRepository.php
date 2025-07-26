@@ -18,7 +18,7 @@ class EntryRepository extends \Statamic\Stache\Repositories\EntryRepository
 
     public function save($entry)
     {
-        $model = $entry->model() ?? EntryModel::make();
+        $model = $entry->model() ?? EntryModel::find($entry->id()) ?? EntryModel::make();
 
         $model
             ->fromContract($entry)
@@ -29,7 +29,7 @@ class EntryRepository extends \Statamic\Stache\Repositories\EntryRepository
 
     public function delete($entry)
     {
-        $model = $entry->model() ?? EntryModel::make();
+        $model = $entry->model() ?? EntryModel::find($entry->id()) ?? EntryModel::make();
 
         $model
             ->fromContract($entry)
