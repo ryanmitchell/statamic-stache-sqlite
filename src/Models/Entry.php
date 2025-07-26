@@ -5,9 +5,15 @@ namespace Thoughtco\StatamicStacheSqlite\Models;
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\File;
 use Statamic\Contracts\Entries\Entry as EntryContract;
+use Statamic\Entries\GetDateFromPath;
+use Statamic\Entries\GetSlugFromPath;
+use Statamic\Facades\Collection;
 use Statamic\Facades\Site;
 use Statamic\Facades\Stache;
+use Statamic\Facades\YAML;
+use Statamic\Support\Arr;
 use Statamic\Support\Str;
 use Thoughtco\StatamicStacheSqlite\Models\Concerns\Flatfile;
 
@@ -66,9 +72,14 @@ class Entry extends Model
         return $contract;
     }
 
-    public function fromPath(string $path)
+    public function fromPath(string $originalPath)
     {
-        $path = Str::after($path, static::getOrbitalPath().DIRECTORY_SEPARATOR);
+        return $this->fromPathAndContents($originalPath, File::get($originalPath));
+    }
+
+    public function fromPathAndContents(string $originalPath, string $contents)
+    {
+        $path = Str::after($originalPath, static::getOrbitalPath().DIRECTORY_SEPARATOR);
 
         $collectionHandle = Str::before($path, DIRECTORY_SEPARATOR);
 
@@ -91,6 +102,19 @@ class Entry extends Model
         }
 
         $data['slug'] = (string) $slug;
+
+        $columns = $this->getSchemaColumns();
+
+        $yamlData = YAML::parse($contents);
+
+        $data = array_merge(
+            collect($columns)->mapWithKeys(fn ($value) => [
+                $value => Arr::get(collect(static::$blueprintColumns)->firstWhere('name', $value)?->toArray() ?? [], 'default', ''),
+            ])->all(),
+            collect($yamlData)->only($columns)->all(),
+            $data,
+            ['data' => collect($yamlData)->except($columns)->all()]
+        );
 
         return $data;
     }
@@ -116,6 +140,49 @@ class Entry extends Model
         return $this;
     }
 
+    public function makeItemFromFile($path, $contents)
+    {
+        $data = $this->fromPathAndContents($path, $contents);
+
+        if (! $id = Arr::pull($data, 'id')) {
+            $id = app('stache')->generateId();
+        }
+
+        $collectionHandle = $data['collection'];
+        $collection = Collection::findByHandle($collectionHandle);
+
+        $entry = \Statamic\Facades\Entry::make()
+            ->id($id)
+            ->collection($collection);
+
+        if ($origin = Arr::pull($data, 'origin')) {
+            $entry->origin($origin);
+        }
+
+        $entry
+            ->blueprint($data['blueprint'] ?? null)
+            ->locale($data['site'])
+            ->initialPath($path)
+            ->published(Arr::pull($data, 'published', true))
+            ->data($data['data']);
+
+        $slug = (new GetSlugFromPath)($path);
+
+        if (! $collection->requiresSlugs() && $slug == $id) {
+            $entry->slug(null);
+        } else {
+            $entry->slug($slug);
+        }
+
+        if ($collection->dated()) {
+            $entry->date((new GetDateFromPath)($path));
+        }
+
+        $entry->model($this);
+
+        return $entry;
+    }
+
     public static function schema(Blueprint $table)
     {
         $table->string('id')->unique();
@@ -124,7 +191,7 @@ class Entry extends Model
         $table->string('collection');
         $table->json('data')->nullable();
         $table->date('date')->nullable();
-        $table->boolean('published');
+        $table->boolean('published')->default(true);
         $table->string('site');
         $table->string('slug');
     }

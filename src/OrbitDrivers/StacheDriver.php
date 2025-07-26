@@ -10,6 +10,7 @@ use Orbit\Facades\Orbit;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
+use Statamic\Facades\File;
 use Statamic\Facades\Stache;
 use Statamic\Facades\YAML;
 
@@ -74,9 +75,15 @@ class StacheDriver
                 continue;
             }
 
-            $collection->push(array_merge($this->parseContent($file, $columns, $model), [
-                'file_path_read_from' => $file->getRealPath(),
-            ]));
+            // let the model determine how to parse the data
+            $row = array_merge(
+                $model->fromPath($file->getPathname()),
+                [
+                    'file_path_read_from' => $file->getRealPath(),
+                ]
+            );
+
+            $collection->push($row);
         }
 
         return $collection;
@@ -121,15 +128,15 @@ class StacheDriver
         return YAML::dumpFrontMatter($matter, $content);
     }
 
-    protected function parseContent(SplFileInfo $file, array $columns = [], ?Model $model = null): array
-    {
-        $yamlData = YAML::file($file->getPathname())->parse();
-
-        return array_merge(
-            collect($columns)->mapWithKeys(fn ($value) => [$value => ''])->all(),
-            collect($yamlData)->only($columns)->all(),
-            $model ? $model->fromPath($file->getPathname()) : [],
-            ['data' => collect($yamlData)->except($columns)->all()],
-        );
-    }
+    //    protected function parseContent(SplFileInfo $file, array $columns = [], ?Model $model = null): array
+    //    {
+    //        $yamlData = YAML::file($file->getPathname())->parse();
+    //
+    //        return array_merge(
+    //            collect($columns)->mapWithKeys(fn ($value) => [$value => ''])->all(),
+    //            collect($yamlData)->only($columns)->all(),
+    //            $model ? $model->fromPath($file->getPathname()) : [],
+    //            ['data' => collect($yamlData)->except($columns)->all()],
+    //        );
+    //    }
 }

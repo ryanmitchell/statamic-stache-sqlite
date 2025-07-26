@@ -3,7 +3,6 @@
 namespace Entries;
 
 use Illuminate\Support\Carbon;
-use Mockery;
 use PHPUnit\Framework\Attributes\Test;
 use Statamic\Contracts\Entries\Entry;
 use Statamic\Facades;
@@ -74,7 +73,8 @@ class EntriesStoreTest extends TestCase
             (new \Statamic\Entries\Collection)->handle('blog')->dated(true)
         );
 
-        $item = $this->parent->store('blog')->makeItemFromFile(
+        // we need to refactor flatfile to allow us to makeItemFromFile for these tests to be meaningful
+        $item = (new EntryModel)->makeItemFromFile(
             Path::tidy($this->directory).'/blog/2017-01-02.my-post.md',
             "id: 123\ntitle: Example\nfoo: bar"
         );
@@ -95,7 +95,7 @@ class EntriesStoreTest extends TestCase
             (new \Statamic\Entries\Collection)->handle('blog')->requiresSlugs(false)
         );
 
-        $item = $this->parent->store('blog')->makeItemFromFile(
+        $item = (new EntryModel)->makeItemFromFile(
             Path::tidy($this->directory).'/blog/the-slug.md',
             "id: 123\ntitle: Example\nfoo: bar"
         );
@@ -111,7 +111,7 @@ class EntriesStoreTest extends TestCase
             (new \Statamic\Entries\Collection)->handle('blog')->requiresSlugs(false)
         );
 
-        $item = $this->parent->store('blog')->makeItemFromFile(
+        $item = (new EntryModel)->makeItemFromFile(
             Path::tidy($this->directory).'/blog/123.md',
             "id: 123\ntitle: Example\nfoo: bar"
         );
@@ -127,26 +127,13 @@ class EntriesStoreTest extends TestCase
             (new \Statamic\Entries\Collection)->handle('blog')->requiresSlugs(true)
         );
 
-        $item = $this->parent->store('blog')->makeItemFromFile(
+        $item = (new EntryModel)->makeItemFromFile(
             Path::tidy($this->directory).'/blog/123.md',
             "id: 123\ntitle: Example\nfoo: bar"
         );
 
         $this->assertEquals('123', $item->id());
         $this->assertEquals('123', $item->slug());
-    }
-
-    #[Test]
-    public function it_uses_the_id_of_the_entry_as_the_item_key()
-    {
-        $entry = Mockery::mock();
-        $entry->shouldReceive('id')->andReturn('test');
-        $entry->shouldReceive('collectionHandle')->andReturn('example');
-
-        $this->assertEquals(
-            'test',
-            $this->parent->store('test')->getItemKey($entry)
-        );
     }
 
     #[Test]

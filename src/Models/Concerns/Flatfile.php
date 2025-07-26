@@ -20,6 +20,10 @@ trait Flatfile
 {
     protected static $orbit;
 
+    protected $schemaColumns;
+
+    protected static $blueprintColumns;
+
     public function getPathKeyName(): string
     {
         return 'path';
@@ -158,7 +162,7 @@ trait Flatfile
         }
 
         /** @var \Illuminate\Database\Schema\Blueprint|null $blueprint */
-        $blueprint = null;
+        static::$blueprintColumns = null;
 
         static::resolveConnection()->getSchemaBuilder()->create($table, function (Blueprint $table) use (&$blueprint) {
             static::schema($table);
@@ -175,51 +179,66 @@ trait Flatfile
                 $table->timestamps();
             }
 
-            $blueprint = $table;
+            static::$blueprintColumns = $table->getColumns();
         });
 
         $driver = Orbit::driver(static::getOrbitalDriver());
-        $columns = $schema->getColumnListing($table);
 
         $driver->all($this, static::getOrbitalPath())
             ->filter()
-            ->map(function ($row) use ($columns, $blueprint) {
-                $newRow = collect($row)
-                    ->filter(fn ($_, $key) => in_array($key, $columns))
-                    ->map(function ($value, $key) {
-                        $this->setAttribute($key, $value);
-
-                        return $this->attributes[$key];
-                    })
-                    ->toArray();
-
-                if (array_key_exists('file_path_read_from', $row) && static::getOrbitalPathPattern() !== null) {
-                    OrbitMeta::query()->updateOrCreate([
-                        'orbital_type' => $this::class,
-                        'orbital_key' => $this->getKey(),
-                    ], [
-                        'file_path_read_from' => $row['file_path_read_from'],
-                    ]);
-                }
-
-                foreach ($columns as $column) {
-                    if (array_key_exists($column, $newRow)) {
-                        continue;
-                    }
-
-                    $definition = $blueprint->orbitGetColumn($column);
-
-                    if ($definition->default) {
-                        $newRow[$column] = $definition->default;
-                    } elseif ($definition->nullable) {
-                        $newRow[$column] = null;
-                    }
-                }
-
-                return $newRow;
-            })
+            ->map(fn ($row) => $this->prepareDataForModel($row))
             ->chunk(100)
             ->each(fn (Collection $chunk) => static::insert($chunk->toArray()));
+    }
+
+    protected function getSchemaColumns(): array
+    {
+        if ($this->schemaColumns) {
+            return $this->schemaColumns;
+        }
+
+        $this->schemaColumns = static::resolveConnection()->getSchemaBuilder()->getColumnListing($this->getTable());
+
+        return $this->schemaColumns;
+    }
+
+    protected function prepareDataForModel(array $row)
+    {
+        $columns = $this->getSchemaColumns();
+
+        $newRow = collect($row)
+            ->filter(fn ($_, $key) => in_array($key, $columns))
+            ->map(function ($value, $key) {
+                $this->setAttribute($key, $value);
+
+                return $this->attributes[$key];
+            })
+            ->toArray();
+
+        if (array_key_exists('file_path_read_from', $row) && static::getOrbitalPathPattern() !== null) {
+            OrbitMeta::query()->updateOrCreate([
+                'orbital_type' => $this::class,
+                'orbital_key' => $this->getKey(),
+            ], [
+                'file_path_read_from' => $row['file_path_read_from'],
+            ]);
+        }
+
+        foreach ($columns as $column) {
+            if (array_key_exists($column, $newRow)) {
+                continue;
+            }
+
+            $definition = static::$blueprintColumns->firstWhere('name', $column);
+
+            if ($definition->default !== null) {
+                $newRow[$column] = $definition->default;
+            } elseif ($definition->nullable) {
+                $newRow[$column] = null;
+            }
+        }
+
+        return $newRow;
     }
 
     protected static function getOrbitalDriver()
