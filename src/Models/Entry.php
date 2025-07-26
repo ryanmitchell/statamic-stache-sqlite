@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Statamic\Contracts\Entries\Entry as EntryContract;
+use Statamic\Facades\Site;
 use Statamic\Facades\Stache;
 use Statamic\Support\Str;
 use Thoughtco\StatamicStacheSqlite\Models\Concerns\Flatfile;
@@ -15,6 +16,7 @@ class Entry extends Model
     use Flatfile;
 
     public static $driver = 'stache';
+
     public string $path = '';
 
     protected function casts(): array
@@ -68,7 +70,7 @@ class Entry extends Model
     {
         $path = Str::after($path, static::getOrbitalPath().DIRECTORY_SEPARATOR);
 
-        $collectionHandle = Str::beforeLast($path, DIRECTORY_SEPARATOR);
+        $collectionHandle = Str::before($path, DIRECTORY_SEPARATOR);
 
         $data = [
             'collection' => $collectionHandle,
@@ -78,7 +80,7 @@ class Entry extends Model
         // need to date, site etc
         $slug = Str::of($path)->after($collectionHandle.DIRECTORY_SEPARATOR)->before('.md');
 
-        if ($slug->contains(DIRECTORY_SEPARATOR)) {
+        if (Site::multiEnabled()) {
             $data['site'] = (string) $slug->before(DIRECTORY_SEPARATOR);
             $slug = $slug->after(DIRECTORY_SEPARATOR);
         }
@@ -117,10 +119,10 @@ class Entry extends Model
     public static function schema(Blueprint $table)
     {
         $table->string('id')->unique();
-        //$table->string('path');
+        // $table->string('path');
         $table->string('blueprint');
         $table->string('collection');
-        $table->json('data');
+        $table->json('data')->nullable();
         $table->date('date')->nullable();
         $table->boolean('published');
         $table->string('site');

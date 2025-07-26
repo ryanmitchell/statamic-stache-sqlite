@@ -7,7 +7,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Thoughtco\\StatamicStacheSqlite\\Tests\\": "tests"
+            "Tests\\": "tests"
         }
     },
     "require": {

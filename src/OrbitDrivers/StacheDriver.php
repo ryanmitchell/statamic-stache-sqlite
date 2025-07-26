@@ -10,12 +10,18 @@ use Orbit\Facades\Orbit;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use SplFileInfo;
+use Statamic\Facades\Stache;
 use Statamic\Facades\YAML;
 
 class StacheDriver
 {
     public function shouldRestoreCache(string $directory): bool
     {
+        // if there is no watcher, always use existing cache
+        if (! Stache::isWatcherEnabled()) {
+            return false;
+        }
+
         $databaseLastUpdated = filemtime(Orbit::getDatabasePath());
 
         foreach (new FilesystemIterator($directory) as $file) {
@@ -57,14 +63,14 @@ class StacheDriver
         /** @var \SplFileInfo $file */
         foreach ($iterator as $file) {
             if ($file->isDir()) {
-                $files = $this->all($file->getRealPath());
+                $files = $this->all($model, $file->getRealPath());
 
                 $collection->merge($files);
 
                 continue;
             }
 
-            if ($file->getExtension() !==  'md') {
+            if ($file->getExtension() !== 'md') {
                 continue;
             }
 
@@ -78,7 +84,7 @@ class StacheDriver
 
     public function filepath(string $directory, string $key): string
     {
-        return $directory . DIRECTORY_SEPARATOR . $key . '.md';
+        return $directory.DIRECTORY_SEPARATOR.$key.'.md';
     }
 
     protected function getModelAttributes(Model $model)
@@ -115,7 +121,7 @@ class StacheDriver
         return YAML::dumpFrontMatter($matter, $content);
     }
 
-    protected function parseContent(SplFileInfo $file, array $columns = [], Model $model = null): array
+    protected function parseContent(SplFileInfo $file, array $columns = [], ?Model $model = null): array
     {
         $yamlData = YAML::file($file->getPathname())->parse();
 

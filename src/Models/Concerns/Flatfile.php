@@ -40,9 +40,9 @@ trait Flatfile
             Orbit::isTesting() ||
             filemtime($modelFile) > filemtime(Orbit::getDatabasePath()) ||
             $driver->shouldRestoreCache(static::getOrbitalPath()) ||
-            !static::resolveConnection()->getSchemaBuilder()->hasTable((new static())->getTable())
+            ! static::resolveConnection()->getSchemaBuilder()->hasTable((new static)->getTable())
         ) {
-            (new static())->migrate();
+            (new static)->migrate();
         }
 
         static::created(function (Model $model) {
@@ -52,7 +52,7 @@ trait Flatfile
 
             // We need to refresh the model so that we can get all of the columns
             // and default values from the SQLite cache.
-            //$model->refresh();
+            // $model->refresh();
 
             $driver = Orbit::driver(static::getOrbitalDriver());
 
@@ -94,7 +94,7 @@ trait Flatfile
                 $meta = OrbitMeta::forOrbital($model);
 
                 if ($meta->file_path_read_from !== $path) {
-                    (new Filesystem())->delete($meta->file_path_read_from);
+                    (new Filesystem)->delete($meta->file_path_read_from);
 
                     $meta->update([
                         'file_path_read_from' => $path,
@@ -130,7 +130,7 @@ trait Flatfile
 
     public static function resolveConnection($connection = null)
     {
-        if (!static::enableOrbit()) {
+        if (! static::enableOrbit()) {
             return parent::resolveConnection($connection);
         }
 
@@ -139,7 +139,7 @@ trait Flatfile
 
     public function getConnectionName()
     {
-        if (!static::enableOrbit()) {
+        if (! static::enableOrbit()) {
             return parent::getConnectionName();
         }
 
@@ -185,7 +185,7 @@ trait Flatfile
             ->filter()
             ->map(function ($row) use ($columns, $blueprint) {
                 $newRow = collect($row)
-                    ->filter(fn($_, $key) => in_array($key, $columns))
+                    ->filter(fn ($_, $key) => in_array($key, $columns))
                     ->map(function ($value, $key) {
                         $this->setAttribute($key, $value);
 
@@ -219,7 +219,7 @@ trait Flatfile
                 return $newRow;
             })
             ->chunk(100)
-            ->each(fn(Collection $chunk) => static::insert($chunk->toArray()));
+            ->each(fn (Collection $chunk) => static::insert($chunk->toArray()));
     }
 
     protected static function getOrbitalDriver()
@@ -229,11 +229,11 @@ trait Flatfile
 
     protected static function ensureOrbitDirectoriesExist()
     {
-        if (!static::enableOrbit()) {
+        if (! static::enableOrbit()) {
             return;
         }
 
-        $fs = new Filesystem();
+        $fs = new Filesystem;
 
         $fs->ensureDirectoryExists(
             static::getOrbitalPath()
@@ -245,7 +245,7 @@ trait Flatfile
 
         $database = Orbit::getDatabasePath();
 
-        if (!$fs->exists($database) && $database !== ':memory:') {
+        if (! $fs->exists($database) && $database !== ':memory:') {
             $fs->put($database, '');
         }
     }
@@ -257,12 +257,12 @@ trait Flatfile
 
     public static function getOrbitalName()
     {
-        return (string)Str::of(class_basename(static::class))->snake()->lower()->plural();
+        return (string) Str::of(class_basename(static::class))->snake()->lower()->plural();
     }
 
     public static function getOrbitalPath()
     {
-        return \config('orbit.paths.content') . DIRECTORY_SEPARATOR . static::getOrbitalName();
+        return \config('orbit.paths.content').DIRECTORY_SEPARATOR.static::getOrbitalName();
     }
 
     public static function getOrbitalPathPattern(): ?string
@@ -277,9 +277,9 @@ trait Flatfile
         }
 
         $pattern = static::getOrbitalPathPattern();
-        $path = static::getOrbitalPath() . DIRECTORY_SEPARATOR . Support::buildPathForPattern($pattern, $model);
+        $path = static::getOrbitalPath().DIRECTORY_SEPARATOR.Support::buildPathForPattern($pattern, $model);
 
-        (new Filesystem())->ensureDirectoryExists($path);
+        (new Filesystem)->ensureDirectoryExists($path);
 
         return $path;
     }
@@ -289,7 +289,7 @@ trait Flatfile
         $result = null;
 
         foreach (class_uses_recursive(static::class) as $trait) {
-            $methodToCall = $method . class_basename($trait);
+            $methodToCall = $method.class_basename($trait);
 
             if (method_exists($this, $methodToCall)) {
                 $result = $this->{$methodToCall}(...$args);

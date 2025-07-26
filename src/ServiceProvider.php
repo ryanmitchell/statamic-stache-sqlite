@@ -27,7 +27,7 @@ class ServiceProvider extends AddonServiceProvider
 
         $this->app->bind(
             Entries\EntryQueryBuilder::class,
-             function ($app) {
+            function ($app) {
                 return new Entries\EntryQueryBuilder(
                     builder: Models\Entry::query()
                 );
