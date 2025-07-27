@@ -113,7 +113,7 @@ class Entry extends Model
 
         $data = [
             'collection' => $collectionHandle,
-            'site' => 'default',
+            'site' => Site::default()->handle(),
         ];
 
         // need to date, site etc
@@ -144,6 +144,15 @@ class Entry extends Model
             ['data' => collect($yamlData)->except($columns)->all()]
         );
 
+        $data['path'] = $path;
+
+        $instance = $this->makeInstanceFromData($data); // fixme: i dont love this, but we need it to get the uri
+        $data['uri'] = $instance->uri();
+//
+//                if ($data['id'] == 'pages-directors') {
+//                    ray($data);
+//                }
+
         return $data;
     }
 
@@ -158,21 +167,22 @@ class Entry extends Model
             $model = $this;
         }
 
-        foreach (['id', 'data', 'date', 'published', 'slug'] as $key) {
-            $model->$key = $entry->{$key}();
-        }
-
         $collection = $entry->collection();
 
         $model->blueprint = $entry->blueprint()->handle();
         $model->collection = $collection->handle();
         $model->site = $entry->locale();
 
+        foreach (['id', 'data', 'date', 'published', 'slug'] as $key) {
+            $model->$key = $entry->{$key}();
+        }
+
         if (! $model->id) {
             $model->id = Str::uuid()->toString();
         }
 
         $model->path = Str::of($entry->buildPath())->after(static::getOrbitalPath().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension());
+        $model->uri = $entry->uri();
 
         return $model;
     }
@@ -181,9 +191,22 @@ class Entry extends Model
     {
         $data = $this->fromPathAndContents($path, $contents);
 
+        $data['path'] = $path;
+
+        $entry = $this->makeInstanceFromData($data);
+
+        $entry->model($this);
+
+        return $entry;
+    }
+
+    private function makeInstanceFromData(array $data)
+    {
         if (! $id = Arr::pull($data, 'id')) {
             $id = app('stache')->generateId();
         }
+
+        $path = Arr::pull($data, 'path');
 
         $collectionHandle = $data['collection'];
         $collection = Collection::findByHandle($collectionHandle);
@@ -203,7 +226,19 @@ class Entry extends Model
             ->published(Arr::pull($data, 'published', true))
             ->data($data['data']);
 
-        $slug = (new GetSlugFromPath)($path);
+        $path = Str::of($path)->after($collectionHandle.DIRECTORY_SEPARATOR)->value();
+
+        // handle slugs like xx/yy
+        $slugDirectory = Str::of($path)->beforeLast(DIRECTORY_SEPARATOR)->value();
+        if ($slugDirectory == $path) {
+            $slugDirectory = false;
+        }
+        $slug = ($slugDirectory ? $slugDirectory.'/' : '').(new GetSlugFromPath)(Str::of($path)->after(DIRECTORY_SEPARATOR)->value());
+
+//        if ($id == 'pages-directors') {
+//            //dd($path);
+//            dd($slug);
+//        }
 
         if (! $collection->requiresSlugs() && $slug == $id) {
             $entry->slug(null);
@@ -215,8 +250,6 @@ class Entry extends Model
             $entry->date((new GetDateFromPath)($path));
         }
 
-        $entry->model($this);
-
         return $entry;
     }
 
@@ -227,11 +260,12 @@ class Entry extends Model
         $table->string('path');
         $table->string('blueprint');
         $table->string('collection');
-        $table->json('data')->nullable();
-        $table->datetime('date')->nullable();
+        $table->json('data')->nullable()->default(null);
+        $table->datetime('date')->nullable()->default(null);
         $table->boolean('published')->default(true);
         $table->string('site');
         $table->string('slug');
+        $table->string('uri')->nullable()->default(null);
     }
 
     public function fileData()

@@ -3,6 +3,7 @@
 namespace Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\Assert as IlluminateAssert;
 use Orbit\OrbitServiceProvider;
 use Statamic\Facades\Site;
 use Statamic\Testing\AddonTestCase;
@@ -79,6 +80,11 @@ abstract class TestCase extends AddonTestCase
         }
 
         $this->assertEquals(count($items), $matches, 'Failed asserting that every item is an instance of '.$class);
+    }
+
+    public static function assertArraySubset($subset, $array, bool $checkForObjectIdentity = false, string $message = ''): void
+    {
+        IlluminateAssert::assertArraySubset($subset, $array, $checkForObjectIdentity, $message);
     }
 
     protected function setSites($sites)

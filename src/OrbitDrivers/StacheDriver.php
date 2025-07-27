@@ -5,6 +5,7 @@ namespace Thoughtco\StatamicStacheSqlite\OrbitDrivers;
 use BackedEnum;
 use FilesystemIterator;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Orbit\Facades\Orbit;
@@ -44,6 +45,9 @@ class StacheDriver
             unlink($model->file_path_read_from);
         }
 
+        $fs = new Filesystem;
+        $fs->ensureDirectoryExists(dirname($path));
+
         file_put_contents($path, $model->fileContents());
 
         return true;
@@ -61,8 +65,6 @@ class StacheDriver
         $collection = Collection::make();
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
 
-        $columns = $model->resolveConnection()->getSchemaBuilder()->getColumnListing($model->getTable());
-
         /** @var \SplFileInfo $file */
         foreach ($iterator as $file) {
             if ($file->isDir()) {
@@ -77,13 +79,13 @@ class StacheDriver
                 continue;
             }
 
+            // let the model determine how to parse the data
             $data = $model->newInstance()->fromPath($file->getPathname());
 
             if (! $data) {
                 continue;
             }
 
-            // let the model determine how to parse the data
             $row = array_merge(
                 $data,
                 [
@@ -136,22 +138,22 @@ class StacheDriver
         return $path;
     }
 
-    protected function getModelAttributes(Model $model)
-    {
-        return collect($model->getAttributes())
-            ->map(function ($_, $key) use ($model) {
-                $value = $model->{$key};
-
-                if ($value instanceof BackedEnum) {
-                    return $value->value;
-                }
-
-                if ($value instanceof Carbon) {
-                    return $value->toIso8601String();
-                }
-
-                return $value;
-            })
-            ->toArray();
-    }
+    //    protected function getModelAttributes(Model $model)
+    //    {
+    //        return collect($model->getAttributes())
+    //            ->map(function ($_, $key) use ($model) {
+    //                $value = $model->{$key};
+    //
+    //                if ($value instanceof BackedEnum) {
+    //                    return $value->value;
+    //                }
+    //
+    //                if ($value instanceof Carbon) {
+    //                    return $value->toIso8601String();
+    //                }
+    //
+    //                return $value;
+    //            })
+    //            ->toArray();
+    //    }
 }
