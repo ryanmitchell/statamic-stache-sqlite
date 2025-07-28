@@ -190,7 +190,28 @@ trait Flatfile
             ->filter()
             ->map(fn ($row) => $this->prepareDataForModel($row))
             ->chunk(100)
-            ->each(fn (Collection $chunk) => static::insert($chunk->toArray()));
+            ->each(function (Collection $chunk) {
+                $insertWithoutUpdate = $chunk->map(function ($row) {
+                    unset($row['updateAfterInsert']);
+
+                    return $row;
+                });
+
+                static::insert($insertWithoutUpdate->toArray());
+
+                // some data needs to be added after the initial insert
+                $chunk->each(function ($row) {
+                    if (! isset($row['updateAfterInsert'])) {
+                        return;
+                    }
+
+                    if (! $values = $row['updateAfterInsert']()) {
+                        return;
+                    }
+
+                    static::newQuery()->where('id', $row['id'])->update($values);
+                });
+            });
     }
 
     protected function getSchemaColumns(): array
@@ -239,6 +260,8 @@ trait Flatfile
                 $newRow[$column] = null;
             }
         }
+
+        $newRow['updateAfterInsert'] = $row['updateAfterInsert'] ?? null;
 
         return $newRow;
     }

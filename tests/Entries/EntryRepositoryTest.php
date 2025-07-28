@@ -2,21 +2,13 @@
 
 namespace Entries;
 
-use Illuminate\Support\Facades\Facade;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use Statamic\Contracts\Entries\Entry;
 use Statamic\Entries\EntryCollection;
 use Statamic\Exceptions\EntryNotFoundException;
-use Statamic\Facades\Blink;
 use Statamic\Facades\Collection;
 use Statamic\Facades\Entry as EntryAPI;
-use Statamic\Stache\Stache;
-use Statamic\Stache\Stores\CollectionsStore;
-use Statamic\Stache\Stores\CollectionTreeStore;
-use Statamic\Stache\Stores\EntriesStore;
-use Statamic\Stache\Stores\NavigationStore;
-use Statamic\Stache\Stores\TaxonomiesStore;
 use Tests\TestCase;
 use Tests\UnlinksPaths;
 use Thoughtco\StatamicStacheSqlite\Entries\EntryRepository;
@@ -188,11 +180,6 @@ class EntryRepositoryTest extends TestCase
     #[Test]
     public function it_gets_entry_by_structure_uri()
     {
-        \Statamic\Facades\Stache::refresh(); // @fix: why is this needed to clear the collection trees?
-        \Statamic\Facades\Entry::find('pages-directors')->save(); // @fix, this clears the collection tree cache, needed as we're a package
-
-        dd(\Statamic\Facades\Entry::find('pages-directors')->model());
-
         $entry = $this->repo->findByUri('/about/board/directors');
 
         $this->assertInstanceOf(Entry::class, $entry);

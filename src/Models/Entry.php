@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\File;
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\Entries\GetDateFromPath;
 use Statamic\Entries\GetSlugFromPath;
+use Statamic\Facades\Blink;
 use Statamic\Facades\Collection;
 use Statamic\Facades\Site;
 use Statamic\Facades\Stache;
@@ -146,12 +147,45 @@ class Entry extends Model
 
         $data['path'] = $path;
 
-        $instance = $this->makeInstanceFromData($data); // fixme: i dont love this, but we need it to get the uri
-        $data['uri'] = $instance->uri();
-//
-//                if ($data['id'] == 'pages-directors') {
-//                    ray($data);
-//                }
+        // entry uri requires collectionstructure, which requires
+        // there to be entries to query, so we first of all insert the entry
+        // then deferred update the uri
+        $id = $data['id'];
+
+        // @TODO: calling uri() here causes entrystoretest to fail as they arent expecting uri() to be called
+        // rename to updateAfterInsert to see the error
+        $data['updateAfterInsert2'] = function () use ($id) {
+            if (! $entry = \Statamic\Facades\Entry::find($id)) {
+                return [];
+            }
+
+            if ($structure = $entry->structure()) { // @TODO: fix the need to do this!
+                Blink::flush();
+                $structure->in($entry->locale())->disableUriCache();
+                $structure->in($entry->locale())->save();
+            }
+
+            if (! $uri = $entry->uri()) {
+                return [];
+            }
+
+            return [
+                'uri' => $uri,
+            ];
+        };
+
+        // fixme: i dont love any of this, but we need it to get the uri
+        //        $instance = $this->makeInstanceFromData($data);
+        //        if ($structure = $instance->structure()) {
+        //            $structure->in($instance->locale())->disableUriCache();
+        //            $data['uri'] = $instance->uri();
+        //        }
+        //
+        //        if ($data['id'] == 'pages-directors') {
+        //            $instance->structure()->in($instance->locale())->disableUriCache();
+        //            $instance->structure()->in($instance->locale())->save();
+        //            dd('HOW CAN I GET THE URI WHEN ITS IN THE STRUCTURE?', $instance->uri());
+        //        }
 
         return $data;
     }
@@ -235,10 +269,10 @@ class Entry extends Model
         }
         $slug = ($slugDirectory ? $slugDirectory.'/' : '').(new GetSlugFromPath)(Str::of($path)->after(DIRECTORY_SEPARATOR)->value());
 
-//        if ($id == 'pages-directors') {
-//            //dd($path);
-//            dd($slug);
-//        }
+        //        if ($id == 'pages-directors') {
+        //            //dd($path);
+        //            dd($slug);
+        //        }
 
         if (! $collection->requiresSlugs() && $slug == $id) {
             $entry->slug(null);
