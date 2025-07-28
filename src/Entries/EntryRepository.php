@@ -4,6 +4,7 @@ namespace Thoughtco\StatamicStacheSqlite\Entries;
 
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\Contracts\Entries\QueryBuilder;
+use Statamic\Facades\Blink;
 use ThoughtCo\StatamicStacheSqlite\Models\Entry as EntryModel;
 
 class EntryRepository extends \Statamic\Stache\Repositories\EntryRepository
@@ -25,6 +26,8 @@ class EntryRepository extends \Statamic\Stache\Repositories\EntryRepository
             ->save();
 
         $entry->model($model);
+
+        Blink::once("entry-{$entry->id()}", fn () => $entry);
     }
 
     public function delete($entry)
@@ -34,5 +37,7 @@ class EntryRepository extends \Statamic\Stache\Repositories\EntryRepository
         $model
             ->fromContract($entry)
             ->delete();
+
+        Blink::forget("entry-{$entry->id()}");
     }
 }

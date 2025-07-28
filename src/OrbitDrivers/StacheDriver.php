@@ -63,7 +63,7 @@ class StacheDriver
     public function all(Model $model, string $directory): Collection
     {
         // @TODO: fix - part of models/entry line 155
-        // Stache::refresh();
+        Stache::refresh();
 
         $collection = Collection::make();
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));

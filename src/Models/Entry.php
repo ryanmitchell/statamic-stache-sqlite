@@ -154,7 +154,7 @@ class Entry extends Model
 
         // @TODO: calling uri() here causes entrystoretest to fail as they arent expecting uri() to be called
         // rename to updateAfterInsert to see the error
-        $data['updateAfterInsert2'] = function () use ($id) {
+        $data['updateAfterInsert'] = function () use ($id) {
             if (! $entry = \Statamic\Facades\Entry::find($id)) {
                 return [];
             }
@@ -292,13 +292,13 @@ class Entry extends Model
         $table->string('id')->unique();
         $table->string('file_path_read_from')->nullable();
         $table->string('path');
-        $table->string('blueprint');
+        $table->string('blueprint')->nullable()->default(null);
         $table->string('collection');
         $table->json('data')->nullable()->default(null);
         $table->datetime('date')->nullable()->default(null);
         $table->boolean('published')->default(true);
         $table->string('site');
-        $table->string('slug');
+        $table->string('slug')->nullable()->default(null);
         $table->string('uri')->nullable()->default(null);
     }
 

@@ -23,7 +23,7 @@ abstract class TestCase extends AddonTestCase
 
         // We changed the default sites setup but the tests assume defaults like the following.
         Site::setSites([
-            'default' => ['name' => 'English', 'locale' => 'en_US', 'url' => 'http://localhost/'],
+            'en' => ['name' => 'English', 'locale' => 'en_US', 'url' => 'http://localhost/'],
         ]);
 
         $app['config']->set('auth.providers.users.driver', 'statamic');
