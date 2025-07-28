@@ -121,16 +121,16 @@ class Entry extends Model
         $slug = Str::of($path)->after($collectionHandle.DIRECTORY_SEPARATOR)->before('.md');
 
         if (Site::multiEnabled()) {
-            $data['site'] = (string) $slug->before(DIRECTORY_SEPARATOR);
+            $data['site'] = $slug->before(DIRECTORY_SEPARATOR)->value();
             $slug = $slug->after(DIRECTORY_SEPARATOR);
         }
 
         if ($slug->contains('.')) {
-            $data['date'] = (string) $slug->before('.');
+            $data['date'] = $slug->before('.')->value();
             $slug = $slug->after('.');
         }
 
-        $data['slug'] = (string) $slug;
+        $data['slug'] = $slug->afterLast(DIRECTORY_SEPARATOR)->value();
 
         $columns = $this->getSchemaColumns();
 
@@ -152,15 +152,14 @@ class Entry extends Model
         // then deferred update the uri
         $id = $data['id'];
 
+        $entry = $this->makeInstanceFromData($data);
+        Blink::store('structure-entries')->put($id, $entry);
+        Blink::put("entry-{$id}", $entry);
+        // Blink::put("origin-Entry-{$id}", $entry); // @TODO: why doensnt this just use entry-{id} ?
+
         $data['updateAfterInsert'] = function () use ($id) {
             if (! $entry = \Statamic\Facades\Entry::find($id)) {
                 return [];
-            }
-
-            if ($structure = $entry->structure()) { // @TODO: fix the need to do this!
-                Blink::flush();
-                $structure->in($entry->locale())->disableUriCache();
-                $structure->in($entry->locale())->save();
             }
 
             if (! $uri = $entry->uri()) {
@@ -253,11 +252,12 @@ class Entry extends Model
         $path = Str::of($path)->after($collectionHandle.DIRECTORY_SEPARATOR)->value();
 
         // handle slugs like xx/yy
-        $slugDirectory = Str::of($path)->beforeLast(DIRECTORY_SEPARATOR)->value();
-        if ($slugDirectory == $path) {
-            $slugDirectory = false;
-        }
-        $slug = ($slugDirectory ? $slugDirectory.'/' : '').(new GetSlugFromPath)(Str::of($path)->after(DIRECTORY_SEPARATOR)->value());
+        //        $slugDirectory = Str::of($path)->beforeLast(DIRECTORY_SEPARATOR)->value();
+        //        if ($slugDirectory == $path) {
+        //            $slugDirectory = false;
+        //        }
+
+        $slug = (new GetSlugFromPath)(Str::of($path)->after(DIRECTORY_SEPARATOR)->value());
 
         //        if ($id == 'pages-directors') {
         //            //dd($path);

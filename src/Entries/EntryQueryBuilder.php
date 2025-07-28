@@ -58,7 +58,7 @@ class EntryQueryBuilder extends EloquentQueryBuilder implements QueryBuilder
 
     public function find($id, $columns = ['*'])
     {
-        if ($result = Blink::once("entry-{$id}", fn () => $this->find($id))) {
+        if ($result = Blink::once("entry-{$id}", fn () => parent::find($id))) {
             return $result->selectedQueryColumns($columns);
         }
 
@@ -81,13 +81,9 @@ class EntryQueryBuilder extends EloquentQueryBuilder implements QueryBuilder
     protected function transform($items, $columns = [])
     {
         $items = EntryCollection::make($items)->map(function ($model) use ($columns) {
-            return Blink::once("entry-{$model->id}", function () use ($columns, $model) {
-                $entry = $model->makeContract()
-                    ->model($model)
-                    ->selectedQueryColumns($this->selectedQueryColumns ?? $columns);
-
-                return $entry;
-            });
+            return Blink::once("entry-{$model->id}", function () use ($model) {
+                return $model->makeContract();
+            })->selectedQueryColumns($this->selectedQueryColumns ?? $columns);
         });
 
         return Entry::applySubstitutions($items);
