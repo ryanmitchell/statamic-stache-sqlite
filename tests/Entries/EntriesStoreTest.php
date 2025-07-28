@@ -72,6 +72,8 @@ class EntriesStoreTest extends TestCase
     #[Test]
     public function it_makes_entry_instances_from_files()
     {
+        EntryModel::query()->delete(); // remove fixture data
+
         Facades\Collection::shouldReceive('findByHandle')->with('blog')->andReturn(
             (new \Statamic\Entries\Collection)->handle('blog')->dated(true)
         );
@@ -94,6 +96,8 @@ class EntriesStoreTest extends TestCase
     #[Test]
     public function if_slugs_are_not_required_the_filename_still_becomes_the_slug()
     {
+        EntryModel::query()->delete(); // remove fixture data
+
         Facades\Collection::shouldReceive('findByHandle')->with('blog')->andReturn(
             (new \Statamic\Entries\Collection)->handle('blog')->requiresSlugs(false)
         );
@@ -110,6 +114,8 @@ class EntriesStoreTest extends TestCase
     #[Test]
     public function if_slugs_are_not_required_and_the_filename_is_the_same_as_the_id_then_slug_is_null()
     {
+        EntryModel::query()->delete(); // remove fixture data
+
         Facades\Collection::shouldReceive('findByHandle')->with('blog')->andReturn(
             (new \Statamic\Entries\Collection)->handle('blog')->requiresSlugs(false)
         );
@@ -126,6 +132,8 @@ class EntriesStoreTest extends TestCase
     #[Test]
     public function if_slugs_are_required_and_the_filename_is_the_same_as_the_id_then_slug_is_the_id()
     {
+        EntryModel::query()->delete(); // remove fixture data
+
         Facades\Collection::shouldReceive('findByHandle')->with('blog')->andReturn(
             (new \Statamic\Entries\Collection)->handle('blog')->requiresSlugs(true)
         );

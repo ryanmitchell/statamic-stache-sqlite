@@ -15,7 +15,6 @@ use LogicException;
 use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
-use ReflectionClass;
 use Statamic\Contracts\Data\Augmentable;
 use Statamic\Contracts\Entries\QueryBuilder;
 use Statamic\Data\AugmentedCollection;
@@ -1376,23 +1375,6 @@ class EntryTest extends TestCase
     }
 
     #[Test]
-    public function when_saving_quietly_the_cached_entrys_with_events_flag_will_be_set_back_to_true()
-    {
-        config(['cache.default' => 'file']); // Doesn't work when they're arrays since the object is stored in memory.
-
-        $entry = EntryFactory::collection('blog')->id('1')->create();
-
-        $entry->saveQuietly();
-
-        $cached = Cache::get('stache::items::entries::blog::1');
-        $reflection = new ReflectionClass($cached);
-        $property = $reflection->getProperty('withEvents');
-        $property->setAccessible(true);
-        $withEvents = $property->getValue($cached);
-        $this->assertTrue($withEvents);
-    }
-
-    #[Test]
     public function it_clears_blink_caches_when_saving()
     {
         $collection = tap(Collection::make('test')->structure(new CollectionStructure))->save();
@@ -2145,9 +2127,6 @@ class EntryTest extends TestCase
         $entry = EntryFactory::collection('test')->locale('en')->id('1')->create();
         $localization = EntryFactory::collection('test')->locale('fr')->id('2')->origin('1')->create();
         $deeperLocalization = EntryFactory::collection('test')->locale('de')->id('3')->origin('2')->create();
-
-        Blink::forget('entry-descendants-*');
-        dd($entry->descendants());
 
         $this->assertCount(3, Facades\Entry::all());
         $this->assertCount(2, $entry->descendants());

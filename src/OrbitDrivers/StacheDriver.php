@@ -65,7 +65,8 @@ class StacheDriver
         // @TODO: fix - part of models/entry line 155
         Stache::refresh();
 
-        $collection = Collection::make();
+        $withoutOrigin = Collection::make();
+        $withOrigin = Collection::make();
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
 
         /** @var \SplFileInfo $file */
@@ -97,10 +98,14 @@ class StacheDriver
                 ]
             );
 
-            $collection->push($row);
+            if ($row['origin'] ?? false) {
+                $withOrigin->push($row);
+            } else {
+                $withoutOrigin->push($row);
+            }
         }
 
-        return $collection;
+        return $withoutOrigin->concat($withOrigin);
     }
 
     public function filepath(string $directory, Model $model): string

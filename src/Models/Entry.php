@@ -152,8 +152,6 @@ class Entry extends Model
         // then deferred update the uri
         $id = $data['id'];
 
-        // @TODO: calling uri() here causes entrystoretest to fail as they arent expecting uri() to be called
-        // rename to updateAfterInsert to see the error
         $data['updateAfterInsert'] = function () use ($id) {
             if (! $entry = \Statamic\Facades\Entry::find($id)) {
                 return [];
@@ -173,19 +171,6 @@ class Entry extends Model
                 'uri' => $uri,
             ];
         };
-
-        // fixme: i dont love any of this, but we need it to get the uri
-        //        $instance = $this->makeInstanceFromData($data);
-        //        if ($structure = $instance->structure()) {
-        //            $structure->in($instance->locale())->disableUriCache();
-        //            $data['uri'] = $instance->uri();
-        //        }
-        //
-        //        if ($data['id'] == 'pages-directors') {
-        //            $instance->structure()->in($instance->locale())->disableUriCache();
-        //            $instance->structure()->in($instance->locale())->save();
-        //            dd('HOW CAN I GET THE URI WHEN ITS IN THE STRUCTURE?', $instance->uri());
-        //        }
 
         return $data;
     }
@@ -219,8 +204,9 @@ class Entry extends Model
             }
         }
 
-        $model->path = Str::of($entry->buildPath())->after(static::getOrbitalPath().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension());
+        $model->path = Str::of($entry->buildPath())->after(static::getOrbitalPath().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
         $model->uri = $entry->uri();
+        $model->origin = $entry->origin()?->id();
 
         return $model;
     }
