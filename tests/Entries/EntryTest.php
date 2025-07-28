@@ -315,6 +315,8 @@ class EntryTest extends TestCase
 
         $this->assertNull($entry->value('test'));
 
+        $collection = $entry->collection(); // @TODO: is blink cache resetting causing us to lose the ref to collection
+
         $collection->cascade(['test' => 'from collection']);
         $this->assertEquals('from collection', $entry->value('test'));
 
@@ -1942,6 +1944,8 @@ class EntryTest extends TestCase
         $origin = EntryFactory::collection($collection)->create();
         $entry = EntryFactory::collection($collection)->origin($origin)->create();
 
+        $collection = $entry->collection(); // @TODO: is blink cache resetting causing us to lose the ref to collection
+
         // defaults to default
         $this->assertEquals('default', $entry->template());
 
@@ -1985,6 +1989,8 @@ class EntryTest extends TestCase
         $collection = tap(Collection::make('test'))->save();
         $origin = EntryFactory::collection($collection)->create();
         $entry = EntryFactory::collection($collection)->origin($origin)->create();
+
+        $collection = $entry->collection(); // @TODO: is blink cache resetting causing us to lose the ref to collection
 
         // defaults to layout
         $this->assertEquals('layout', $entry->layout());
@@ -2139,6 +2145,9 @@ class EntryTest extends TestCase
         $entry = EntryFactory::collection('test')->locale('en')->id('1')->create();
         $localization = EntryFactory::collection('test')->locale('fr')->id('2')->origin('1')->create();
         $deeperLocalization = EntryFactory::collection('test')->locale('de')->id('3')->origin('2')->create();
+
+        Blink::forget('entry-descendants-*');
+        dd($entry->descendants());
 
         $this->assertCount(3, Facades\Entry::all());
         $this->assertCount(2, $entry->descendants());

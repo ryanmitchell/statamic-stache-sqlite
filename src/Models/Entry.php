@@ -213,6 +213,10 @@ class Entry extends Model
 
         if (! $model->id) {
             $model->id = Str::uuid()->toString();
+
+            if (! $entry->id()) {
+                $entry->id($model->id);
+            }
         }
 
         $model->path = Str::of($entry->buildPath())->after(static::getOrbitalPath().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension());
@@ -300,6 +304,7 @@ class Entry extends Model
         $table->string('site');
         $table->string('slug')->nullable()->default(null);
         $table->string('uri')->nullable()->default(null);
+        $table->string('origin')->nullable()->default(null);
     }
 
     public function fileData()
