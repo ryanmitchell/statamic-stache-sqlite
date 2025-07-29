@@ -1,6 +1,6 @@
 <?php
 
-namespace Thoughtco\StatamicStacheSqlite\OrbitDrivers;
+namespace Thoughtco\StatamicStacheSqlite\Drivers;
 
 use BackedEnum;
 use FilesystemIterator;
@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Orbit\Facades\Orbit;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use Statamic\Entries\GetSuffixFromPath;
@@ -16,17 +15,19 @@ use Statamic\Entries\RemoveSuffixFromPath;
 use Statamic\Facades\File;
 use Statamic\Facades\Stache;
 use Statamic\Support\Str;
+use Thoughtco\StatamicStacheSqlite\Contracts\Driver;
+use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
 
-class StacheDriver
+class StacheDriver implements Driver
 {
-    public function shouldRestoreCache(string $directory): bool
+    public function shouldRestoreCache(Model $model, string $directory): bool
     {
         // if there is no watcher, dont rebuild the cache
         if (! Stache::isWatcherEnabled()) {
             return false;
         }
 
-        $databaseLastUpdated = filemtime(Orbit::getDatabasePath());
+        $databaseLastUpdated = filemtime(Flatfile::getDatabasePath());
 
         foreach (new FilesystemIterator($directory) as $file) {
             if ($file->getMTime() > $databaseLastUpdated) {

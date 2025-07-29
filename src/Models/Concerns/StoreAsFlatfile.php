@@ -7,18 +7,15 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
-use Orbit\Drivers\FileDriver;
-use Orbit\Events\OrbitalCreated;
-use Orbit\Events\OrbitalDeleted;
-use Orbit\Events\OrbitalUpdated;
-use Orbit\Facades\Orbit;
-use Orbit\Models\OrbitMeta;
-use Orbit\Support;
 use ReflectionClass;
 use Statamic\Facades\YAML;
 use Statamic\Support\Arr;
+use Thoughtco\StatamicStacheSqlite\Events\FlatfileCreated;
+use Thoughtco\StatamicStacheSqlite\Events\FlatfileDeleted;
+use Thoughtco\StatamicStacheSqlite\Events\FlatfileUpdated;
+use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
 
-trait Flatfile
+trait StoreAsFlatfile
 {
     protected static $orbit;
 
@@ -31,7 +28,7 @@ trait Flatfile
         return 'path';
     }
 
-    public static function bootFlatfile()
+    public static function bootStoreAsFlatfile()
     {
         if (! static::enableOrbit()) {
             return;
@@ -39,13 +36,13 @@ trait Flatfile
 
         static::ensureOrbitDirectoriesExist();
 
-        $driver = Orbit::driver(static::getOrbitalDriver());
+        $driver = Flatfile::driver(static::getStatamicDriver());
         $modelFile = (new ReflectionClass(static::class))->getFileName();
 
         if (
-            Orbit::isTesting() ||
-            filemtime($modelFile) > filemtime(Orbit::getDatabasePath()) ||
-            $driver->shouldRestoreCache(static::getOrbitalPath()) ||
+            Flatfile::isTesting() ||
+            filemtime($modelFile) > filemtime(Flatfile::getDatabasePath()) ||
+            $driver->shouldRestoreCache((new static), static::getFlatfilePath()) ||
             ! static::resolveConnection()->getSchemaBuilder()->hasTable((new static)->getTable())
         ) {
             (new static)->migrate();
@@ -60,25 +57,14 @@ trait Flatfile
             // and default values from the SQLite cache.
             // $model->refresh();
 
-            $driver = Orbit::driver(static::getOrbitalDriver());
+            $driver = Flatfile::driver(static::getStatamicDriver());
 
             $status = $driver->save(
                 $model,
-                $directory = static::generateOrbitalFilePathForModel($model)
+                static::getFlatfilePath($model)
             );
 
-            //            if (static::getOrbitalPathPattern() !== null && $driver instanceof FileDriver) {
-            //                $path = $driver->filepath($directory, $model);
-            //
-            //                OrbitMeta::query()->updateOrCreate([
-            //                    'orbital_type' => $model::class,
-            //                    'orbital_key' => $model->getKey(),
-            //                ], [
-            //                    'file_path_read_from' => $path,
-            //                ]);
-            //            }
-
-            event(new OrbitalCreated($model));
+            event(new FlatfileCreated($model));
 
             return $status;
         });
@@ -88,27 +74,14 @@ trait Flatfile
                 return;
             }
 
-            $driver = Orbit::driver(static::getOrbitalDriver());
+            $driver = Flatfile::driver(static::getStatamicDriver());
 
             $status = $driver->save(
                 $model,
-                $directory = static::generateOrbitalFilePathForModel($model)
+                static::getFlatfilePath($model)
             );
 
-            //            if (static::getOrbitalPathPattern() !== null && $driver instanceof FileDriver) {
-            //                $path = $driver->filepath($directory, $model);
-            //                $meta = OrbitMeta::forOrbital($model);
-            //
-            //                if ($meta->file_path_read_from !== $path) {
-            //                    (new Filesystem)->delete($meta->file_path_read_from);
-            //
-            //                    $meta->update([
-            //                        'file_path_read_from' => $path,
-            //                    ]);
-            //                }
-            //            }
-
-            event(new OrbitalUpdated($model));
+            event(new FlatfileUpdated($model));
 
             return $status;
         });
@@ -118,12 +91,12 @@ trait Flatfile
                 return;
             }
 
-            $status = Orbit::driver(static::getOrbitalDriver())->delete(
+            $status = Flatfile::driver(static::getStatamicDriver())->delete(
                 $model,
-                static::generateOrbitalFilePathForModel($model)
+                static::getFlatfilePath($model)
             );
 
-            event(new OrbitalDeleted($model));
+            event(new FlatfileDeleted($model));
 
             return $status;
         });
@@ -140,7 +113,7 @@ trait Flatfile
             return parent::resolveConnection($connection);
         }
 
-        return static::$resolver->connection('orbit');
+        return static::$resolver->connection('statamic');
     }
 
     public function getConnectionName()
@@ -172,7 +145,7 @@ trait Flatfile
 
             $this->callTraitMethod('schema', $table);
 
-            $driver = Orbit::driver(static::getOrbitalDriver());
+            $driver = Flatfile::driver(static::getStatamicDriver());
 
             if (method_exists($driver, 'schema')) {
                 $driver->schema($table);
@@ -185,9 +158,9 @@ trait Flatfile
             static::$blueprintColumns = $table->getColumns();
         });
 
-        $driver = Orbit::driver(static::getOrbitalDriver());
+        $driver = Flatfile::driver(static::getStatamicDriver());
 
-        $files = $driver->all($this, static::getOrbitalPath());
+        $files = $driver->all($this, static::getFlatfilePath());
 
         ray()->measure('inserting_flatfiles');
 
@@ -204,6 +177,7 @@ trait Flatfile
 
                 static::insert($insertWithoutUpdate->toArray());
             })
+            // @TODO: if we can avoid the need for this it reduces the build time on the test site from (2s to 200ms)
             ->each(function (Collection $chunk) {
                 // some data needs to be added after the initial insert
                 $chunk->each(function ($row) {
@@ -250,15 +224,6 @@ trait Flatfile
             })
             ->toArray();
 
-        //        if (array_key_exists('file_path_read_from', $row) && static::getOrbitalPathPattern() !== null) {
-        //            OrbitMeta::query()->updateOrCreate([
-        //                'orbital_type' => $this::class,
-        //                'orbital_key' => $this->getKey(),
-        //            ], [
-        //                'file_path_read_from' => $row['file_path_read_from'],
-        //            ]);
-        //        }
-
         foreach ($columns as $column) {
             if (array_key_exists($column, $newRow)) {
                 continue;
@@ -278,7 +243,7 @@ trait Flatfile
         return $newRow;
     }
 
-    protected static function getOrbitalDriver()
+    protected static function getStatamicDriver()
     {
         return property_exists(static::class, 'driver') ? static::$driver : null;
     }
@@ -292,14 +257,10 @@ trait Flatfile
         $fs = new Filesystem;
 
         $fs->ensureDirectoryExists(
-            static::getOrbitalPath()
+            static::getFlatfilePath()
         );
 
-        $fs->ensureDirectoryExists(
-            \config('orbit.paths.cache')
-        );
-
-        $database = Orbit::getDatabasePath();
+        $database = Flatfile::getDatabasePath();
 
         if (! $fs->exists($database) && $database !== ':memory:') {
             $fs->put($database, '');
@@ -311,33 +272,14 @@ trait Flatfile
         return true;
     }
 
-    public static function getOrbitalName()
+    public static function getFlatfileName()
     {
         return (string) Str::of(class_basename(static::class))->snake()->lower()->plural();
     }
 
-    public static function getOrbitalPath()
+    public static function getFlatfilePath()
     {
-        return \config('orbit.paths.content').DIRECTORY_SEPARATOR.static::getOrbitalName();
-    }
-
-    public static function getOrbitalPathPattern(): ?string
-    {
-        return null;
-    }
-
-    public static function generateOrbitalFilePathForModel(Model $model)
-    {
-        if (static::getOrbitalPathPattern() === null) {
-            return static::getOrbitalPath();
-        }
-
-        $pattern = static::getOrbitalPathPattern();
-        $path = static::getOrbitalPath().DIRECTORY_SEPARATOR.Support::buildPathForPattern($pattern, $model);
-
-        (new Filesystem)->ensureDirectoryExists($path);
-
-        return $path;
+        return \config('orbit.paths.content').DIRECTORY_SEPARATOR.static::getFlatfileName();
     }
 
     public function callTraitMethod(string $method, ...$args)

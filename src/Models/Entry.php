@@ -18,12 +18,12 @@ use Statamic\Facades\Stache;
 use Statamic\Facades\YAML;
 use Statamic\Support\Arr;
 use Statamic\Support\Str;
-use Thoughtco\StatamicStacheSqlite\Models\Concerns\Flatfile;
+use Thoughtco\StatamicStacheSqlite\Models\Concerns\StoreAsFlatfile;
 
 class Entry extends Model
 {
-    use Flatfile;
     use HasUuids;
+    use StoreAsFlatfile;
 
     public static $driver = 'stache';
 
@@ -40,7 +40,7 @@ class Entry extends Model
         return 'id';
     }
 
-    public static function getOrbitalPath()
+    public static function getFlatfilePath()
     {
         return rtrim(Stache::store('entries')->directory(), '/');
     }
@@ -125,7 +125,7 @@ class Entry extends Model
 
     public function fromPathAndContents(string $originalPath, string $contents)
     {
-        $path = Str::after($originalPath, static::getOrbitalPath().DIRECTORY_SEPARATOR);
+        $path = Str::after($originalPath, static::getFlatfilePath().DIRECTORY_SEPARATOR);
 
         [$collectionHandle, $site] = $this->extractAttributesFromPath($path);
 
@@ -236,7 +236,7 @@ class Entry extends Model
             }
         }
 
-        $model->path = Str::of($entry->buildPath())->after(static::getOrbitalPath().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
+        $model->path = Str::of($entry->buildPath())->after(static::getFlatfilePath().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
         $model->uri = $entry->uri();
         $model->origin = $entry->origin()?->id();
 

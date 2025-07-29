@@ -3,8 +3,8 @@
 namespace Thoughtco\StatamicStacheSqlite\Commands;
 
 use Illuminate\Console\Command;
-use Orbit\Facades\Orbit;
 use Statamic\Console\RunsInPlease;
+use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
 
 class ClearCache extends Command
 {
@@ -29,7 +29,7 @@ class ClearCache extends Command
      */
     public function handle()
     {
-        $path = Orbit::getDatabasePath();
+        $path = Flatfile::getDatabasePath();
 
         if (! file_exists($path)) {
             return;

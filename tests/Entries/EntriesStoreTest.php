@@ -11,8 +11,8 @@ use Statamic\Facades\Path;
 use Statamic\Facades\Stache;
 use Statamic\Stache\Stores\EntriesStore;
 use Tests\TestCase;
+use Thoughtco\StatamicStacheSqlite\Drivers\StacheDriver;
 use Thoughtco\StatamicStacheSqlite\Models\Entry as EntryModel;
-use Thoughtco\StatamicStacheSqlite\OrbitDrivers\StacheDriver;
 
 class EntriesStoreTest extends TestCase
 {

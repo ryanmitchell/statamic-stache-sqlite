@@ -2,29 +2,33 @@
 
 namespace Thoughtco\StatamicStacheSqlite;
 
-use Orbit\Facades\Orbit;
 use Statamic\Contracts\Entries\EntryRepository as EntryRepositoryContract;
 use Statamic\Providers\AddonServiceProvider;
 use Statamic\Statamic;
+use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
+use Thoughtco\StatamicStacheSqlite\Managers\FlatfileManager;
 
 class ServiceProvider extends AddonServiceProvider
 {
-    public function boot()
-    {
-        // @TODO: move all orbit stuff to this package so we dont depend on it
-        // make all configs statamic, not orbit, remove orbital etc
-        // config()->set('orbit.paths.cache', storage_path('statamic/cache'));
-
-        parent::boot();
-    }
-
     public function bootAddon()
     {
-        Orbit::extend('stache', function ($app) {
-            return new OrbitDrivers\StacheDriver($app);
+        $this->registerEntryRepository();
+    }
+
+    public function register()
+    {
+        $this->app->scoped(FlatfileManager::class, function ($app) {
+            $manager = new FlatfileManager($app);
+            $manager->extend('stache', fn () => new Drivers\StacheDriver($app));
+
+            return $manager;
         });
 
-        $this->registerEntryRepository();
+        $this->app['config']->set('database.connections.statamic', [
+            'driver' => 'sqlite',
+            'database' => Flatfile::getDatabasePath(),
+            'foreign_key_constraints' => false,
+        ]);
     }
 
     private function registerEntryRepository()

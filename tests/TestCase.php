@@ -41,13 +41,6 @@ abstract class TestCase extends AddonTestCase
         ]);
     }
 
-    protected function getPackageProviders($app)
-    {
-        return array_merge(parent::getPackageProviders($app), [
-            OrbitServiceProvider::class,
-        ]);
-    }
-
     protected function assertEveryItem($items, $callback)
     {
         if ($items instanceof \Illuminate\Support\Collection) {
