@@ -52,7 +52,7 @@ class Entry extends Model
 
     public function makeContract()
     {
-        $contract = app(EntryContract::class)::make();
+        $contract = (new \Thoughtco\StatamicStacheSqlite\Entries\Entry);
 
         $attributes = collect($this->getAttributes())
             ->map(function ($_, $key) {
@@ -74,8 +74,11 @@ class Entry extends Model
             })
             ->toArray();
 
+        Blink::store('structure-entries')->put($this->id, $contract);
+        Blink::put("entry-{$this->id}", $contract);
+
         foreach ($attributes as $key => $value) {
-            if (in_array($key, ['created_at', 'updated_at', 'file_path_read_from', 'path'])) {
+            if (in_array($key, ['created_at', 'updated_at', 'file_path_read_from', 'path', 'uri'])) {
                 continue;
             }
 
@@ -97,6 +100,24 @@ class Entry extends Model
         return $contract;
     }
 
+    protected function extractAttributesFromPath($path)
+    {
+        $site = Site::default()->handle();
+        $collection = pathinfo($path, PATHINFO_DIRNAME);
+        $collection = Str::after($collection, $path);
+
+        if (Site::multiEnabled()) {
+            [$collection, $site] = explode('/', $collection);
+        }
+
+        // Support entries within subdirectories at any level.
+        if (Str::contains($collection, '/')) {
+            $collection = Str::before($collection, '/');
+        }
+
+        return [$collection, $site];
+    }
+
     public function fromPath(string $originalPath)
     {
         return $this->fromPathAndContents($originalPath, File::get($originalPath));
@@ -106,31 +127,41 @@ class Entry extends Model
     {
         $path = Str::after($originalPath, static::getOrbitalPath().DIRECTORY_SEPARATOR);
 
-        $collectionHandle = Str::before($path, DIRECTORY_SEPARATOR);
+        [$collectionHandle, $site] = $this->extractAttributesFromPath($path);
 
-        if ($collectionHandle == $path) {
+        // $collectionHandle = Str::before($path, DIRECTORY_SEPARATOR);
+
+        if ($collectionHandle == '.') {
             return;
         }
 
         $data = [
             'collection' => $collectionHandle,
-            'site' => Site::default()->handle(),
+            'site' => $site,
         ];
 
+        $collection = Collection::findByHandle($collectionHandle);
+
+        if ($collection->dated()) {
+            $data['date'] = (new GetDateFromPath)($path);
+        }
+
         // need to date, site etc
-        $slug = Str::of($path)->after($collectionHandle.DIRECTORY_SEPARATOR)->before('.md');
+        // $slug = Str::of($path)->after($collectionHandle.DIRECTORY_SEPARATOR)->before('.md');
 
-        if (Site::multiEnabled()) {
-            $data['site'] = $slug->before(DIRECTORY_SEPARATOR)->value();
-            $slug = $slug->after(DIRECTORY_SEPARATOR);
-        }
+        $data['slug'] = (new GetSlugFromPath)($path);
 
-        if ($slug->contains('.')) {
-            $data['date'] = $slug->before('.')->value();
-            $slug = $slug->after('.');
-        }
+        //        if (Site::multiEnabled()) {
+        //            $data['site'] = $slug->before(DIRECTORY_SEPARATOR)->value();
+        //            $slug = $slug->after(DIRECTORY_SEPARATOR);
+        //        }
 
-        $data['slug'] = $slug->afterLast(DIRECTORY_SEPARATOR)->value();
+        //        if ($slug->contains('.')) {
+        //            $data['date'] = $slug->before('.')->value();
+        //            $slug = $slug->after('.');
+        //        }
+
+        // $data['slug'] = $slug->afterLast(DIRECTORY_SEPARATOR)->value();
 
         $columns = $this->getSchemaColumns();
 
@@ -170,6 +201,8 @@ class Entry extends Model
                 'uri' => $uri,
             ];
         };
+
+        // $data['uri'] = $entry->uri();
 
         return $data;
     }
@@ -234,7 +267,7 @@ class Entry extends Model
         $collectionHandle = $data['collection'];
         $collection = Collection::findByHandle($collectionHandle);
 
-        $entry = \Statamic\Facades\Entry::make()
+        $entry = (new \Thoughtco\StatamicStacheSqlite\Entries\Entry)
             ->id($id)
             ->collection($collection);
 

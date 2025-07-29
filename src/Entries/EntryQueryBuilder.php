@@ -26,7 +26,7 @@ class EntryQueryBuilder extends EloquentQueryBuilder implements QueryBuilder
         $table = Str::contains($column, '.') ? Str::before($column, '.') : '';
         $column = Str::after($column, '.');
 
-        $columns = (new EntryModel)->resolveConnection()->getSchemaBuilder()->getColumnListing((new EntryModel)->getTable());
+        $columns = Blink::once('entry-columns', fn () => (new EntryModel)->resolveConnection()->getSchemaBuilder()->getColumnListing((new EntryModel)->getTable()));
 
         if (! in_array($column, $columns)) {
             if (! Str::startsWith($column, 'data->')) {

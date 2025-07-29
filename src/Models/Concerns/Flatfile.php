@@ -67,16 +67,16 @@ trait Flatfile
                 $directory = static::generateOrbitalFilePathForModel($model)
             );
 
-            if (static::getOrbitalPathPattern() !== null && $driver instanceof FileDriver) {
-                $path = $driver->filepath($directory, $model);
-
-                OrbitMeta::query()->updateOrCreate([
-                    'orbital_type' => $model::class,
-                    'orbital_key' => $model->getKey(),
-                ], [
-                    'file_path_read_from' => $path,
-                ]);
-            }
+            //            if (static::getOrbitalPathPattern() !== null && $driver instanceof FileDriver) {
+            //                $path = $driver->filepath($directory, $model);
+            //
+            //                OrbitMeta::query()->updateOrCreate([
+            //                    'orbital_type' => $model::class,
+            //                    'orbital_key' => $model->getKey(),
+            //                ], [
+            //                    'file_path_read_from' => $path,
+            //                ]);
+            //            }
 
             event(new OrbitalCreated($model));
 
@@ -95,18 +95,18 @@ trait Flatfile
                 $directory = static::generateOrbitalFilePathForModel($model)
             );
 
-            if (static::getOrbitalPathPattern() !== null && $driver instanceof FileDriver) {
-                $path = $driver->filepath($directory, $model);
-                $meta = OrbitMeta::forOrbital($model);
-
-                if ($meta->file_path_read_from !== $path) {
-                    (new Filesystem)->delete($meta->file_path_read_from);
-
-                    $meta->update([
-                        'file_path_read_from' => $path,
-                    ]);
-                }
-            }
+            //            if (static::getOrbitalPathPattern() !== null && $driver instanceof FileDriver) {
+            //                $path = $driver->filepath($directory, $model);
+            //                $meta = OrbitMeta::forOrbital($model);
+            //
+            //                if ($meta->file_path_read_from !== $path) {
+            //                    (new Filesystem)->delete($meta->file_path_read_from);
+            //
+            //                    $meta->update([
+            //                        'file_path_read_from' => $path,
+            //                    ]);
+            //                }
+            //            }
 
             event(new OrbitalUpdated($model));
 
@@ -154,6 +154,7 @@ trait Flatfile
 
     public function migrate()
     {
+        ray('migrate');
         $table = $this->getTable();
 
         /** @var \Illuminate\Database\Schema\Builder $schema */
@@ -186,10 +187,14 @@ trait Flatfile
 
         $driver = Orbit::driver(static::getOrbitalDriver());
 
-        $driver->all($this, static::getOrbitalPath())
+        $files = $driver->all($this, static::getOrbitalPath());
+
+        ray()->measure('inserting_flatfiles');
+
+        $files
             ->filter()
             ->map(fn ($row) => $this->prepareDataForModel($row))
-            ->chunk(100)
+            ->chunk(500)
             ->each(function (Collection $chunk) {
                 $insertWithoutUpdate = $chunk->map(function ($row) {
                     unset($row['updateAfterInsert']);
@@ -198,7 +203,8 @@ trait Flatfile
                 });
 
                 static::insert($insertWithoutUpdate->toArray());
-
+            })
+            ->each(function (Collection $chunk) {
                 // some data needs to be added after the initial insert
                 $chunk->each(function ($row) {
                     if (! isset($row['updateAfterInsert'])) {
@@ -212,6 +218,8 @@ trait Flatfile
                     static::newQuery()->where('id', $row['id'])->update($values);
                 });
             });
+
+        ray()->measure('inserting_flatfiles');
     }
 
     protected function getSchemaColumns(): array
@@ -231,21 +239,25 @@ trait Flatfile
 
         $newRow = collect($row)
             ->filter(fn ($_, $key) => in_array($key, $columns))
-            ->map(function ($value, $key) {
-                $this->setAttribute($key, $value);
+            ->map(function ($value, $key) use ($row) {
+                try {
+                    $this->setAttribute($key, $value);
 
-                return $this->attributes[$key];
+                    return $this->attributes[$key];
+                } catch (\Exception $e) {
+                    dd($value, $key, $row);
+                }
             })
             ->toArray();
 
-        if (array_key_exists('file_path_read_from', $row) && static::getOrbitalPathPattern() !== null) {
-            OrbitMeta::query()->updateOrCreate([
-                'orbital_type' => $this::class,
-                'orbital_key' => $this->getKey(),
-            ], [
-                'file_path_read_from' => $row['file_path_read_from'],
-            ]);
-        }
+        //        if (array_key_exists('file_path_read_from', $row) && static::getOrbitalPathPattern() !== null) {
+        //            OrbitMeta::query()->updateOrCreate([
+        //                'orbital_type' => $this::class,
+        //                'orbital_key' => $this->getKey(),
+        //            ], [
+        //                'file_path_read_from' => $row['file_path_read_from'],
+        //            ]);
+        //        }
 
         foreach ($columns as $column) {
             if (array_key_exists($column, $newRow)) {

@@ -21,7 +21,7 @@ class StacheDriver
 {
     public function shouldRestoreCache(string $directory): bool
     {
-        // if there is no watcher, always use existing cache
+        // if there is no watcher, dont rebuild the cache
         if (! Stache::isWatcherEnabled()) {
             return false;
         }
@@ -62,6 +62,8 @@ class StacheDriver
 
     public function all(Model $model, string $directory): Collection
     {
+        ray()->measure('reading_flatfiles');
+
         $withoutOrigin = Collection::make();
         $withOrigin = Collection::make();
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
@@ -101,6 +103,8 @@ class StacheDriver
                 $withoutOrigin->push($row);
             }
         }
+
+        ray()->measure('reading_flatfiles');
 
         return $withoutOrigin->concat($withOrigin);
     }
