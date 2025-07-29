@@ -2,11 +2,9 @@
 
 namespace Thoughtco\StatamicStacheSqlite\Drivers;
 
-use BackedEnum;
 use FilesystemIterator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -147,23 +145,4 @@ class StacheDriver implements Driver
 
         return $path;
     }
-
-    //    protected function getModelAttributes(Model $model)
-    //    {
-    //        return collect($model->getAttributes())
-    //            ->map(function ($_, $key) use ($model) {
-    //                $value = $model->{$key};
-    //
-    //                if ($value instanceof BackedEnum) {
-    //                    return $value->value;
-    //                }
-    //
-    //                if ($value instanceof Carbon) {
-    //                    return $value->toIso8601String();
-    //                }
-    //
-    //                return $value;
-    //            })
-    //            ->toArray();
-    //    }
 }

@@ -17,8 +17,6 @@ use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
 
 trait StoreAsFlatfile
 {
-    protected static $orbit;
-
     protected $schemaColumns;
 
     protected static $blueprintColumns;
@@ -30,13 +28,13 @@ trait StoreAsFlatfile
 
     public static function bootStoreAsFlatfile()
     {
-        if (! static::enableOrbit()) {
+        if (! static::enableFlatfile()) {
             return;
         }
 
-        static::ensureOrbitDirectoriesExist();
+        static::ensureFlatfileDirectoriesExist();
 
-        $driver = Flatfile::driver(static::getStatamicDriver());
+        $driver = Flatfile::driver(static::getFlatfileDriver());
         $modelFile = (new ReflectionClass(static::class))->getFileName();
 
         if (
@@ -57,7 +55,7 @@ trait StoreAsFlatfile
             // and default values from the SQLite cache.
             // $model->refresh();
 
-            $driver = Flatfile::driver(static::getStatamicDriver());
+            $driver = Flatfile::driver(static::getFlatfileDriver());
 
             $status = $driver->save(
                 $model,
@@ -74,7 +72,7 @@ trait StoreAsFlatfile
                 return;
             }
 
-            $driver = Flatfile::driver(static::getStatamicDriver());
+            $driver = Flatfile::driver(static::getFlatfileDriver());
 
             $status = $driver->save(
                 $model,
@@ -91,7 +89,7 @@ trait StoreAsFlatfile
                 return;
             }
 
-            $status = Flatfile::driver(static::getStatamicDriver())->delete(
+            $status = Flatfile::driver(static::getFlatfileDriver())->delete(
                 $model,
                 static::getFlatfilePath($model)
             );
@@ -109,7 +107,7 @@ trait StoreAsFlatfile
 
     public static function resolveConnection($connection = null)
     {
-        if (! static::enableOrbit()) {
+        if (! static::enableFlatfile()) {
             return parent::resolveConnection($connection);
         }
 
@@ -118,7 +116,7 @@ trait StoreAsFlatfile
 
     public function getConnectionName()
     {
-        if (! static::enableOrbit()) {
+        if (! static::enableFlatfile()) {
             return parent::getConnectionName();
         }
 
@@ -128,6 +126,7 @@ trait StoreAsFlatfile
     public function migrate()
     {
         ray('migrate');
+
         $table = $this->getTable();
 
         /** @var \Illuminate\Database\Schema\Builder $schema */
@@ -145,7 +144,7 @@ trait StoreAsFlatfile
 
             $this->callTraitMethod('schema', $table);
 
-            $driver = Flatfile::driver(static::getStatamicDriver());
+            $driver = Flatfile::driver(static::getFlatfileDriver());
 
             if (method_exists($driver, 'schema')) {
                 $driver->schema($table);
@@ -158,7 +157,7 @@ trait StoreAsFlatfile
             static::$blueprintColumns = $table->getColumns();
         });
 
-        $driver = Flatfile::driver(static::getStatamicDriver());
+        $driver = Flatfile::driver(static::getFlatfileDriver());
 
         $files = $driver->all($this, static::getFlatfilePath());
 
@@ -243,14 +242,14 @@ trait StoreAsFlatfile
         return $newRow;
     }
 
-    protected static function getStatamicDriver()
+    protected static function getFlatfileDriver()
     {
         return property_exists(static::class, 'driver') ? static::$driver : null;
     }
 
-    protected static function ensureOrbitDirectoriesExist()
+    protected static function ensureFlatfileDirectoriesExist()
     {
-        if (! static::enableOrbit()) {
+        if (! static::enableFlatfile()) {
             return;
         }
 
@@ -267,7 +266,7 @@ trait StoreAsFlatfile
         }
     }
 
-    public static function enableOrbit(): bool
+    public static function enableFlatfile(): bool
     {
         return true;
     }
@@ -279,7 +278,7 @@ trait StoreAsFlatfile
 
     public static function getFlatfilePath()
     {
-        return \config('orbit.paths.content').DIRECTORY_SEPARATOR.static::getFlatfileName();
+        return base_path('content').DIRECTORY_SEPARATOR.static::getFlatfileName();
     }
 
     public function callTraitMethod(string $method, ...$args)

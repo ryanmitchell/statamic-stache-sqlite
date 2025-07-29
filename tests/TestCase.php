@@ -4,7 +4,6 @@ namespace Tests;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\Assert as IlluminateAssert;
-use Orbit\OrbitServiceProvider;
 use Statamic\Facades\Site;
 use Statamic\Testing\AddonTestCase;
 use Thoughtco\StatamicStacheSqlite\ServiceProvider;
