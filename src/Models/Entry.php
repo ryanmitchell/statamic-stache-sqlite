@@ -312,18 +312,18 @@ class Entry extends Model
 
     public static function schema(Blueprint $table)
     {
-        $table->string('id')->unique();
+        $table->string('id')->unique()->index();
         $table->string('file_path_read_from')->nullable();
         $table->string('path');
         $table->string('blueprint')->nullable()->default(null);
-        $table->string('collection');
+        $table->string('collection')->index();
         $table->json('data')->nullable()->default(null);
         $table->datetime('date')->nullable()->default(null);
-        $table->boolean('published')->default(true);
-        $table->string('site');
-        $table->string('slug')->nullable()->default(null);
-        $table->string('uri')->nullable()->default(null);
-        $table->string('origin')->nullable()->default(null);
+        $table->boolean('published')->default(true)->index();
+        $table->string('site')->index();
+        $table->string('slug')->nullable()->default(null)->index();
+        $table->string('uri')->nullable()->default(null)->index();
+        $table->string('origin')->nullable()->default(null)->index();
     }
 
     public function fileData()
