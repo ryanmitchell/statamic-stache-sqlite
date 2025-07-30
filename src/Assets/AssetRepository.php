@@ -19,7 +19,11 @@ class AssetRepository extends \Statamic\Assets\AssetRepository
 
     public function save($asset)
     {
-        $model = $asset->model() ?? AssetModel::find($asset->id()) ?? AssetModel::make();
+        $model = $asset->model() ?? AssetModel::find($asset->id()) ?? AssetModel::firstOrNew([
+            'container' => $asset->container(),
+            'folder' => $asset->folder(),
+            'basename' => $asset->basename(),
+        ]);
 
         $model
             ->fromContract($asset)
@@ -32,12 +36,16 @@ class AssetRepository extends \Statamic\Assets\AssetRepository
 
     public function delete($asset)
     {
-        $model = $asset->model() ?? AssetModel::find($asset->id()) ?? AssetModel::make();
+        if ($id = $asset->id()) {
+            Blink::forget("asset-{$id}");
+        }
 
-        $model
-            ->fromContract($asset)
+        $this->query()
+            ->where([
+                'container' => $asset->container(),
+                'folder' => $asset->folder(),
+                'basename' => $asset->basename(),
+            ])
             ->delete();
-
-        Blink::forget("asset-{$asset->id()}");
     }
 }

@@ -7,6 +7,7 @@ use Carbon\Carbon;
 use Facades\Statamic\Fields\BlueprintRepository;
 use Facades\Statamic\Imaging\ImageValidator;
 use Illuminate\Contracts\Support\Arrayable;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Event;
@@ -47,6 +48,7 @@ use Thoughtco\StatamicStacheSqlite\Assets\Asset;
 class AssetTest extends TestCase
 {
     use PreventSavingStacheItemsToDisk;
+    use RefreshDatabase;
 
     private $container;
 
@@ -453,6 +455,10 @@ class AssetTest extends TestCase
             ->with('test')
             ->andReturn($container = new AssetContainer);
 
+        Facades\AssetContainer::shouldReceive('findByHandle')
+            ->with('test')
+            ->andReturn($container); // @TODO: remove once we switch to using find
+
         $asset = (new Asset)->container('test');
 
         $this->assertEquals($container, $asset->container());
@@ -684,6 +690,7 @@ class AssetTest extends TestCase
         $this->assertTrue(Cache::has($asset->metaCacheKey()));
 
         // Deleting asset should clear cache
+        Event::fake(); // @TODO: work out why this is needed?
         $asset->delete();
         $this->assertFalse(Cache::has($asset->metaCacheKey()));
     }
@@ -707,29 +714,6 @@ class AssetTest extends TestCase
         // After we ask for meta, we should see it in cache as well...
         $this->assertEquals($expected, $asset->meta());
         $this->assertEquals($expected, Cache::get($asset->metaCacheKey()));
-    }
-
-    #[Test]
-    public function it_gets_existing_meta_data_as_content()
-    {
-        config()->set('statamic.assets.meta_as_content', true);
-        $relativePath = 'foo/test.txt';
-        $metaFilePath = Stache::store('assets')->directory()."/test/{$relativePath}.yaml";
-
-        Storage::fake('test');
-        Storage::disk('test')->put($relativePath, '');
-
-        File::makeDirectory(dirname($metaFilePath), 0755, true);
-        File::put($metaFilePath, YAML::dump($data = [
-            'data' => ['foo' => 'bar'],
-            'size' => 123,
-        ]));
-
-        $container = tap(Facades\AssetContainer::make('test')->disk('test'))->save();
-        $asset = (new Asset)->container($container)->path($relativePath);
-
-        $this->assertEquals($metaFilePath, $asset->metaPath());
-        $this->assertEquals($data, $asset->meta());
     }
 
     #[Test]

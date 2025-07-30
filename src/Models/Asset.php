@@ -9,10 +9,11 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Storage;
 use Statamic\Contracts\Assets\Asset as AssetContract;
 use Statamic\Facades\AssetContainer;
-use Statamic\Facades\Site;
+use Statamic\Facades\Blink;
 use Statamic\Facades\YAML;
 use Statamic\Support\Arr;
 use Statamic\Support\Str;
+use Thoughtco\StatamicStacheSqlite\Contracts\Driver;
 use Thoughtco\StatamicStacheSqlite\Models\Concerns\StoreAsFlatfile;
 
 class Asset extends Model
@@ -21,6 +22,8 @@ class Asset extends Model
     use StoreAsFlatfile;
 
     public static $driver = 'stache';
+
+    protected $fillable = ['container', 'folder', 'basename'];
 
     protected function casts(): array
     {
@@ -36,7 +39,9 @@ class Asset extends Model
 
     public static function getFlatfileResolvers()
     {
-        return AssetContainer::all()->map(fn ($container) => fn () => $container->metaFiles())->all();
+        return AssetContainer::all()
+            ->mapWithKeys(fn ($container) => [$container->handle => fn () => $container->files()]) // map files to be prefixed with the disk_handle:: so we can get the container in fromPath below
+            ->all();
     }
 
     public function getIncrementing()
@@ -48,63 +53,62 @@ class Asset extends Model
     {
         $contract = (new \Thoughtco\StatamicStacheSqlite\Assets\Asset)
             ->path($this->path)
-            ->container($this->container)
-            ->syncOriginal();
+            ->container($this->container);
+
+        // add meta to the cache store so it gets resolved by pending meta
+        $meta = Arr::except($this->toArray(), ['id', 'file_path_read_from', 'container', 'path', 'folder', 'basename', 'filename', 'extension', 'created_at', 'updated_at']);
+        $contract->cacheStore()->forever($contract->metaCacheKey(), $meta);
+
+        $contract->model($this);
+        $contract->syncOriginal();
 
         return $contract;
     }
 
-    protected function extractAttributesFromPath($path)
+    public function fromPath(string $handle, string $originalPath)
     {
-        $site = Site::default()->handle();
-        $collection = pathinfo($path, PATHINFO_DIRNAME);
-        $collection = Str::after($collection, $path);
-
-        if (Site::multiEnabled()) {
-            [$collection, $site] = explode('/', $collection);
+        if (! $meta = AssetContainer::findByHandle($handle)->disk()->get($this->metaPath($originalPath))) {
+            return null;
         }
 
-        // Support entries within subdirectories at any level.
-        if (Str::contains($collection, '/')) {
-            $collection = Str::before($collection, '/');
-        }
-
-        return [$collection, $site];
-    }
-
-    public function fromPath(string $originalPath)
-    {
-        // dd(Storage::disk('test')->allFiles());
-        // dd($originalPath, Storage::disk('test')->get($originalPath));
-        return $this->fromPathAndContents($originalPath, Storage::disk('test')->get($originalPath) ?? '');
+        return $this->fromPathAndContents($handle.'::'.$originalPath, $meta ?? '');
     }
 
     public function fromPathAndContents(string $originalPath, string $contents)
     {
-        // dd($contents);
-        $columns = $this->getSchemaColumns();
+        $columns = Blink::once('asset-columns', fn () => $this->getSchemaColumns());
 
         $yamlData = YAML::parse($contents);
+
+        [$container, $originalPath] = explode('::', $originalPath, 2);
+
+        $pathinfo = pathinfo($originalPath);
+
+        $pathinfo['folder'] = $pathinfo['dirname'] == '.' ? '/' : $pathinfo['dirname'];
+        unset($pathinfo['dirname']);
 
         $data = array_merge(
             collect($columns)->mapWithKeys(fn ($value) => [
                 $value => Arr::get(collect(static::$blueprintColumns)->firstWhere('name', $value)?->toArray() ?? [], 'default', ''),
             ])->all(),
             collect($yamlData)->only($columns)->all(),
+            $pathinfo,
             ['data' => collect($yamlData)->except($columns)->all()]
         );
 
+        $data['container'] = $container;
         $data['path'] = $originalPath;
 
-        // entry uri requires collectionstructure, which requires
-        // there to be entries to query, so we first of all insert the entry
-        // then deferred update the uri
-        $id = $data['id'];
+        if (! $data['id']) {
+            $data['id'] = $data['container'].'::'.$data['path'];
+        }
+
+        $this->makeInstanceFromData($data);
 
         return $data;
     }
 
-    public function fromContract(AssetContract $asset)
+    public function fromContract(AssetContract $asset, ?array $meta = [])
     {
         $model = $this;
         if (($id = $asset->id()) && ! $this->id) {
@@ -115,18 +119,18 @@ class Asset extends Model
             $model = $this;
         }
 
-        $model->container = $asset->container();
+        $model->container = $asset->container()->handle();
 
-        foreach (['id', 'path', 'container', 'folder', 'basename', 'filename', 'extension', 'data'] as $key) {
+        foreach (['id', 'path', 'folder', 'basename', 'filename', 'extension'] as $key) {
             $model->$key = $asset->{$key}();
         }
 
-        foreach (['duration', 'height', 'last_modified', 'mime_type', 'size', 'width'] as $key) {
-            $model->$key = $asset->meta($key);
+        $meta = $meta ?? $asset->meta();
+        foreach (['data', 'duration', 'height', 'last_modified', 'mime_type', 'size', 'width'] as $key) {
+            $model->$key = $meta[$key] ?? null;
         }
 
-        // need to figure out how to make this relative to asset container
-        $model->path = Storage::disk('test')->path($asset->path());
+        $model->path = Storage::disk($asset->container()->disk)->path($asset->path());
 
         return $model;
     }
@@ -138,8 +142,9 @@ class Asset extends Model
         $data['path'] = $path;
 
         $asset = $this->makeInstanceFromData($data);
-
         $asset->model($this);
+
+        $asset->syncOriginal();
 
         return $asset;
     }
@@ -148,11 +153,14 @@ class Asset extends Model
     {
         // if we dont have a cache for this asset's meta, we should store it here to
         // ensure it doesnt need to get regenerated
-
         $asset = (new \Thoughtco\StatamicStacheSqlite\Assets\Asset)
             ->path($data['path'])
             ->container($data['container'])
             ->syncOriginal();
+
+        // add meta to the cache store so it gets resolved by pending meta
+        $meta = Arr::except($data, ['id', 'file_path_read_from', 'container', 'path', 'folder', 'basename', 'filename', 'extension', 'created_at', 'updated_at']);
+        $asset->cacheStore()->forever($asset->metaCacheKey, $meta);
 
         return $asset;
     }
@@ -168,7 +176,8 @@ class Asset extends Model
         $table->string('filename')->index();
         $table->string('extension')->index();
 
-        // all of this is stored in a cache, so its debateble we need it... left it here so sorting can be done in CP
+        // all of this is stored in the meta cache, so its debatable that we need to store it...
+        // but I've left it here so sorting can be done in CP
         $table->integer('duration')->nullable()->default(null);
         $table->integer('height')->nullable()->default(null);
         $table->integer('last_modified')->nullable()->default(null);
@@ -182,7 +191,7 @@ class Asset extends Model
     public function fileData()
     {
         return [
-            'data' => $this->data->all(),
+            'data' => $this->data?->toArray() ?? [],
             'duration' => $this->duration,
             'height' => $this->height,
             'last_modified' => $this->last_modified,
@@ -195,5 +204,31 @@ class Asset extends Model
     public function fileExtension()
     {
         return 'yaml';
+    }
+
+    private function metaPath(string $path)
+    {
+        $path = dirname($path).'/.meta/'.basename($path).'.yaml';
+
+        return (string) Str::of($path)->replaceFirst('./', '')->ltrim('/');
+    }
+
+    public function writeFlatfile(Driver $driver)
+    {
+        AssetContainer::findByHandle($this->container)->disk()->put($this->metaPath($this->path), $this->fileContents());
+
+        return true;
+    }
+
+    public function deleteFlatfile(Driver $driver)
+    {
+        AssetContainer::findByHandle($this->container)->disk()->delete($this->metaPath($this->path));
+
+        return true;
+    }
+
+    protected function shouldRemoveNullsFromFileData()
+    {
+        return false;
     }
 }

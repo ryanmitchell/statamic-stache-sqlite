@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use ReflectionClass;
 use Statamic\Facades\YAML;
 use Statamic\Support\Arr;
+use Thoughtco\StatamicStacheSqlite\Contracts\Driver;
 use Thoughtco\StatamicStacheSqlite\Events\FlatfileCreated;
 use Thoughtco\StatamicStacheSqlite\Events\FlatfileDeleted;
 use Thoughtco\StatamicStacheSqlite\Events\FlatfileUpdated;
@@ -55,14 +56,7 @@ trait StoreAsFlatfile
             // and default values from the SQLite cache.
             // $model->refresh();
 
-            $driver = Flatfile::driver(static::getFlatfileDriver());
-
-            // @TODO: move this to the model (writeFlatfile, deleteFlatfile) or something?
-            // maybe we dont need the driver
-            $status = $driver->save(
-                $model,
-                $model->getFlatFileRootDirectory()
-            );
+            $status = Flatfile::driver(static::getFlatfileDriver())->save($model);
 
             event(new FlatfileCreated($model));
 
@@ -74,12 +68,7 @@ trait StoreAsFlatfile
                 return;
             }
 
-            $driver = Flatfile::driver(static::getFlatfileDriver());
-
-            $status = $driver->save(
-                $model,
-                $model->getFlatFileRootDirectory()
-            );
+            $status = Flatfile::driver(static::getFlatfileDriver())->save($model);
 
             event(new FlatfileUpdated($model));
 
@@ -91,10 +80,7 @@ trait StoreAsFlatfile
                 return;
             }
 
-            $status = Flatfile::driver(static::getFlatfileDriver())->delete(
-                $model,
-                $model->getFlatFileRootDirectory()
-            );
+            $status = Flatfile::driver(static::getFlatfileDriver())->delete($model);
 
             event(new FlatfileDeleted($model));
 
@@ -122,11 +108,12 @@ trait StoreAsFlatfile
             return parent::getConnectionName();
         }
 
-        return 'orbit';
+        return 'statamic';
     }
 
     public function migrate()
     {
+        ray('migrate');
         $table = $this->getTable();
 
         /** @var \Illuminate\Database\Schema\Builder $schema */
@@ -159,8 +146,8 @@ trait StoreAsFlatfile
 
         $driver = Flatfile::driver(static::getFlatfileDriver());
 
-        foreach (static::getFlatfileResolvers() as $directory) {
-            $files = $driver->all($this, $directory);
+        foreach (static::getFlatfileResolvers() as $handle => $directory) {
+            $files = $driver->all($this, $handle, $directory);
 
             ray()->measure('inserting_flatfiles: '.get_class($this));
 
@@ -175,7 +162,11 @@ trait StoreAsFlatfile
                         return $row;
                     });
 
-                    static::insert($insertWithoutUpdate->toArray());
+                    try {
+                        static::insert($insertWithoutUpdate->toArray());
+                    } catch (\Throwable $e) {
+                        dd($e);
+                    }
                 })
                 // @TODO: if we can avoid the need for this it reduces the build time on the test site from (2s to 200ms)
                 // it would also allow us to switch to using lazy collections
@@ -336,5 +327,28 @@ trait StoreAsFlatfile
     public function fileExtension()
     {
         return 'yaml';
+    }
+
+    public function deleteFlatfile(Driver $driver)
+    {
+        unlink($driver->filepath($this->getFlatfileRootDirectory(), $this));
+
+        return true;
+    }
+
+    public function writeFlatfile(Driver $driver)
+    {
+        $path = $driver->filepath($this->getFlatfileRootDirectory(), $this);
+
+        if ($this->file_path_read_from && ($path != $this->file_path_read_from)) {
+            unlink($this->file_path_read_from);
+        }
+
+        $fs = new Filesystem;
+        $fs->ensureDirectoryExists(dirname($path));
+
+        file_put_contents($path, $this->fileContents());
+
+        return true;
     }
 }

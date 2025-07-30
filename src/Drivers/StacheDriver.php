@@ -3,7 +3,6 @@
 namespace Thoughtco\StatamicStacheSqlite\Drivers;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
 use Statamic\Entries\GetSuffixFromPath;
 use Statamic\Entries\RemoveSuffixFromPath;
@@ -35,30 +34,17 @@ class StacheDriver implements Driver
         return false;
     }
 
-    public function save(Model $model, string $directory): bool
+    public function save(Model $model): bool
     {
-        $path = $this->filepath($directory, $model);
-
-        if ($model->file_path_read_from && ($path != $model->file_path_read_from)) {
-            unlink($model->file_path_read_from);
-        }
-
-        $fs = new Filesystem;
-        $fs->ensureDirectoryExists(dirname($path));
-
-        file_put_contents($path, $model->fileContents());
-
-        return true;
+        return $model->writeFlatfile($this);
     }
 
-    public function delete(Model $model, string $directory): bool
+    public function delete(Model $model): bool
     {
-        unlink($this->filepath($directory, $model));
-
-        return true;
+        return $model->deleteFlatfile($this);
     }
 
-    public function all(Model $model, \Closure $fileResolver): Collection
+    public function all(Model $model, string $handle, \Closure $fileResolver): Collection
     {
         ray()->measure('reading_flatfiles: '.get_class($model));
 
@@ -66,23 +52,11 @@ class StacheDriver implements Driver
         // if so, chunk in StoreAsFlatFile will also need changed
         $collection = Collection::make();
 
-        /** @var \SplFileInfo|string $file */
-        foreach ($fileResolver() as $file) { // @TODO: this should really just expect an array of filtered string file paths
-            $path = $file;
-            if (! is_string($file)) {
-                if ($file->isDir()) {
-                    continue;
-                }
-
-                if ($file->getExtension() !== $model->fileExtension()) {
-                    continue;
-                }
-
-                $path = $file->getPathname();
-            }
+        /** @var string $path */
+        foreach ($fileResolver() as $path) {
 
             // let the model determine how to parse the data
-            $data = $model->newInstance()->fromPath($path);
+            $data = $model->newInstance()->fromPath($handle, $path);
 
             if (! $data) {
                 continue;
@@ -104,6 +78,7 @@ class StacheDriver implements Driver
         return $collection;
     }
 
+    // @TODO: should this be moved to StoreAsFlatfile
     public function filepath(string $directory, Model $model): string
     {
         $basePath = $directory.DIRECTORY_SEPARATOR.$model->{$model->getPathKeyName()}.'.'.$model->fileExtension();

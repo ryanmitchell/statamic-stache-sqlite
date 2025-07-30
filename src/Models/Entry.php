@@ -52,12 +52,27 @@ class Entry extends Model
     public static function getFlatfileResolvers(): array
     {
         return [
-            function () {
+            'collection-entries' => function () {
                 $directory = rtrim(Stache::store('entries')->directory(), '/');
 
                 (new Filesystem)->ensureDirectoryExists($directory);
 
-                return new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
+                $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
+
+                $files = [];
+                foreach ($iterator as $file) {
+                    if ($file->isDir()) {
+                        continue;
+                    }
+
+                    if ($file->getExtension() !== 'md') {
+                        continue;
+                    }
+
+                    $files[] = $file->getPathname();
+                }
+
+                return $files;
             },
         ];
     }
@@ -135,7 +150,7 @@ class Entry extends Model
         return [$collection, $site];
     }
 
-    public function fromPath(string $originalPath)
+    public function fromPath(string $handle, string $originalPath)
     {
         return $this->fromPathAndContents($originalPath, File::get($originalPath));
     }
@@ -180,7 +195,7 @@ class Entry extends Model
 
         // $data['slug'] = $slug->afterLast(DIRECTORY_SEPARATOR)->value();
 
-        $columns = $this->getSchemaColumns();
+        $columns = Blink::once('entry-columns', fn () => $this->getSchemaColumns());
 
         $yamlData = YAML::parse($contents);
 

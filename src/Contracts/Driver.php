@@ -10,9 +10,9 @@ interface Driver
 {
     public function shouldRestoreCache(Model $model, array $resolvers): bool;
 
-    public function save(Model $model, string $directory): bool;
+    public function save(Model $model): bool;
 
-    public function delete(Model $model, string $directory): bool;
+    public function delete(Model $model): bool;
 
-    public function all(Model $model, Closure $fileResolver): Collection;
+    public function all(Model $model, string $handle, Closure $fileResolver): Collection;
 }

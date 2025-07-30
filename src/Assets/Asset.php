@@ -3,7 +3,8 @@
 namespace Thoughtco\StatamicStacheSqlite\Assets;
 
 use Statamic\Assets\Asset as FileAsset;
-use ThoughtCo\StatamicStacheSqlite\Models\Asset as AssetModel;
+use Statamic\Facades\AssetContainer as AssetContainerAPI;
+use Thoughtco\StatamicStacheSqlite\Models\Asset as AssetModel;
 
 class Asset extends FileAsset
 {
@@ -18,5 +19,24 @@ class Asset extends FileAsset
         $this->model = $model;
 
         return $this;
+    }
+
+    public function writeMeta($meta)
+    {
+        $model = $this->model() ?? AssetModel::find($this->id()) ?? AssetModel::make();
+
+        $model->fromContract($this, $meta)->saveQuietly();
+
+        $this->model($model); // we dont actually write...
+    }
+
+    public function container($container = null)
+    {
+        return $this
+            ->fluentlyGetOrSet('container')
+            ->setter(function ($container) {
+                return is_string($container) ? AssetContainerAPI::findByHandle($container) : $container; // @TODO: literally done this to avoid needing to add find() to a bunch of mockery calls
+            })
+            ->args(func_get_args());
     }
 }
