@@ -2,12 +2,16 @@
 
 namespace Thoughtco\StatamicStacheSqlite\Models;
 
+use FilesystemIterator;
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\Entries\GetDateFromPath;
 use Statamic\Entries\GetSlugFromPath;
@@ -40,13 +44,22 @@ class Entry extends Model
         return 'id';
     }
 
-    public static function getFlatfilePaths(?Model $model = null)
+    public function getFlatfileRootDirectory(): string
     {
-        $directories = [
-            rtrim(Stache::store('entries')->directory(), '/'),
-        ];
+        return rtrim(Stache::store('entries')->directory(), '/');
+    }
 
-        return $model ? $directories[0] : $directories;
+    public static function getFlatfileResolvers(): array
+    {
+        return [
+            function () {
+                $directory = rtrim(Stache::store('entries')->directory(), '/');
+
+                (new Filesystem)->ensureDirectoryExists($directory);
+
+                return new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
+            },
+        ];
     }
 
     public function getIncrementing()
@@ -129,7 +142,7 @@ class Entry extends Model
 
     public function fromPathAndContents(string $originalPath, string $contents)
     {
-        $path = Str::after($originalPath, static::getFlatfilePaths((new static)).DIRECTORY_SEPARATOR);
+        $path = Str::after($originalPath, (new static)->getFlatfileRootDirectory().DIRECTORY_SEPARATOR);
 
         [$collectionHandle, $site] = $this->extractAttributesFromPath($path);
 
@@ -240,7 +253,7 @@ class Entry extends Model
             }
         }
 
-        $model->path = Str::of($entry->buildPath())->after(static::getFlatfilePaths($model).DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
+        $model->path = Str::of($entry->buildPath())->after($model->getFlatfileRootDirectory().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
         $model->uri = $entry->uri();
         $model->origin = $entry->origin()?->id();
 

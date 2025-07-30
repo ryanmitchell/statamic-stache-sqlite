@@ -5,7 +5,6 @@ namespace Thoughtco\StatamicStacheSqlite\Assets;
 use Statamic\Contracts\Assets\Asset as AssetContract;
 use Statamic\Contracts\Assets\QueryBuilder as QueryBuilderContract;
 use Statamic\Facades\Blink;
-use Thoughtco\StatamicStacheSqlite\Asset\AssetQueryBuilder;
 use Thoughtco\StatamicStacheSqlite\Models\Asset as AssetModel;
 
 class AssetRepository extends \Statamic\Assets\AssetRepository
@@ -20,7 +19,7 @@ class AssetRepository extends \Statamic\Assets\AssetRepository
 
     public function save($asset)
     {
-        $model = $asset->model() ?? AssetModel::find($entry->id()) ?? AssetModel::make();
+        $model = $asset->model() ?? AssetModel::find($asset->id()) ?? AssetModel::make();
 
         $model
             ->fromContract($asset)

@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Statamic\Contracts\Assets\Asset as AssetContract;
 use Statamic\Facades\AssetContainer;
 use Statamic\Facades\Site;
@@ -34,11 +34,9 @@ class Asset extends Model
         return 'id';
     }
 
-    public static function getFlatfilePaths(?Model $model = null)
+    public static function getFlatfileResolvers()
     {
-        $directories = AssetContainer::all()->map->path()->toArray();
-
-        dd($directories);
+        return AssetContainer::all()->map(fn ($container) => fn () => $container->metaFiles())->all();
     }
 
     public function getIncrementing()
@@ -76,12 +74,14 @@ class Asset extends Model
 
     public function fromPath(string $originalPath)
     {
-        return $this->fromPathAndContents($originalPath, File::get($originalPath));
+        // dd(Storage::disk('test')->allFiles());
+        // dd($originalPath, Storage::disk('test')->get($originalPath));
+        return $this->fromPathAndContents($originalPath, Storage::disk('test')->get($originalPath) ?? '');
     }
 
     public function fromPathAndContents(string $originalPath, string $contents)
     {
-        dd($contents);
+        // dd($contents);
         $columns = $this->getSchemaColumns();
 
         $yamlData = YAML::parse($contents);
@@ -91,11 +91,10 @@ class Asset extends Model
                 $value => Arr::get(collect(static::$blueprintColumns)->firstWhere('name', $value)?->toArray() ?? [], 'default', ''),
             ])->all(),
             collect($yamlData)->only($columns)->all(),
-            $data,
             ['data' => collect($yamlData)->except($columns)->all()]
         );
 
-        $data['path'] = $path;
+        $data['path'] = $originalPath;
 
         // entry uri requires collectionstructure, which requires
         // there to be entries to query, so we first of all insert the entry
@@ -127,7 +126,7 @@ class Asset extends Model
         }
 
         // need to figure out how to make this relative to asset container
-        $model->path = Str::of($entry->buildPath())->after(static::getFlatfilePath().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
+        $model->path = Storage::disk('test')->path($asset->path());
 
         return $model;
     }

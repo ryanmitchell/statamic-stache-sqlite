@@ -40,7 +40,7 @@ trait StoreAsFlatfile
         if (
             Flatfile::isTesting() ||
             filemtime($modelFile) > filemtime(Flatfile::getDatabasePath()) ||
-            $driver->shouldRestoreCache((new static), static::getFlatfilePaths()) ||
+            $driver->shouldRestoreCache((new static), static::getFlatfileResolvers()) ||
             ! static::resolveConnection()->getSchemaBuilder()->hasTable((new static)->getTable())
         ) {
             (new static)->migrate();
@@ -59,7 +59,7 @@ trait StoreAsFlatfile
 
             $status = $driver->save(
                 $model,
-                static::getFlatfilePaths($model)
+                $model->getFlatFileRootDirectory()
             );
 
             event(new FlatfileCreated($model));
@@ -76,7 +76,7 @@ trait StoreAsFlatfile
 
             $status = $driver->save(
                 $model,
-                static::getFlatfilePaths($model)
+                $model->getFlatFileRootDirectory()
             );
 
             event(new FlatfileUpdated($model));
@@ -91,7 +91,7 @@ trait StoreAsFlatfile
 
             $status = Flatfile::driver(static::getFlatfileDriver())->delete(
                 $model,
-                static::getFlatfilePaths($model)
+                $model->getFlatFileRootDirectory()
             );
 
             event(new FlatfileDeleted($model));
@@ -157,10 +157,10 @@ trait StoreAsFlatfile
 
         $driver = Flatfile::driver(static::getFlatfileDriver());
 
-        foreach (static::getFlatfilePaths() as $directory) {
+        foreach (static::getFlatfileResolvers() as $directory) {
             $files = $driver->all($this, $directory);
 
-            ray()->measure('inserting_flatfiles: '.get_class($this).' directory: '.$directory);
+            ray()->measure('inserting_flatfiles: '.get_class($this));
 
             $files
                 ->filter()
@@ -192,7 +192,7 @@ trait StoreAsFlatfile
                     });
                 });
 
-            ray()->measure('inserting_flatfiles: '.get_class($this).' directory: '.$directory);
+            ray()->measure('inserting_flatfiles: '.get_class($this));
 
         }
     }
@@ -257,10 +257,6 @@ trait StoreAsFlatfile
 
         $fs = new Filesystem;
 
-        foreach (static::getFlatfilePaths() as $path) {
-            $fs->ensureDirectoryExists($path);
-        }
-
         $database = Flatfile::getDatabasePath();
 
         if (! $fs->exists($database) && $database !== ':memory:') {
@@ -278,13 +274,14 @@ trait StoreAsFlatfile
         return (string) Str::of(class_basename(static::class))->snake()->lower()->plural();
     }
 
-    public static function getFlatfilePaths(?Model $model = null)
+    public static function getFlatfileResolvers(): array
     {
-        $directories = [
-            base_path('content').DIRECTORY_SEPARATOR.static::getFlatfileName(),
-        ];
+        return [];
+    }
 
-        return $model ? $directories[0] : $directories;
+    public function getFlatFileRootDirectory(): string
+    {
+        return '';
     }
 
     public function callTraitMethod(string $method, ...$args)

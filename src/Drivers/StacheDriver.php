@@ -2,12 +2,9 @@
 
 namespace Thoughtco\StatamicStacheSqlite\Drivers;
 
-use FilesystemIterator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
 use Statamic\Entries\GetSuffixFromPath;
 use Statamic\Entries\RemoveSuffixFromPath;
 use Statamic\Facades\File;
@@ -18,7 +15,7 @@ use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
 
 class StacheDriver implements Driver
 {
-    public function shouldRestoreCache(Model $model, array $directories): bool
+    public function shouldRestoreCache(Model $model, array $resolvers): bool
     {
         // if there is no watcher, dont rebuild the cache
         if (! Stache::isWatcherEnabled()) {
@@ -27,8 +24,8 @@ class StacheDriver implements Driver
 
         $databaseLastUpdated = filemtime(Flatfile::getDatabasePath());
 
-        foreach ($directories as $directory) {
-            foreach (new FilesystemIterator($directory) as $file) {
+        foreach ($resolvers as $fileResolver) {
+            foreach ($fileResolver() as $file) {
                 if ($file->getMTime() > $databaseLastUpdated) {
                     return true;
                 }
@@ -61,32 +58,31 @@ class StacheDriver implements Driver
         return true;
     }
 
-    public function all(Model $model, string $directory): Collection
+    public function all(Model $model, \Closure $fileResolver): Collection
     {
         ray()->measure('reading_flatfiles: '.get_class($model));
 
         // @TODO: change this to be a lazy collection from a memory and speed perspective
         // if so, chunk in StoreAsFlatFile will also need changed
-        $withoutOrigin = Collection::make();
-        $withOrigin = Collection::make();
-        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
+        $collection = Collection::make();
 
-        /** @var \SplFileInfo $file */
-        foreach ($iterator as $file) {
-            if ($file->isDir()) {
-                $files = $this->all($model, $file->getRealPath());
+        /** @var \SplFileInfo|string $file */
+        foreach ($fileResolver() as $file) { // @TODO: this should really just expect an array of filtered string file paths
+            $path = $file;
+            if (! is_string($file)) {
+                if ($file->isDir()) {
+                    continue;
+                }
 
-                $collection->merge($files);
+                if ($file->getExtension() !== $model->fileExtension()) {
+                    continue;
+                }
 
-                continue;
-            }
-
-            if ($file->getExtension() !== $model->fileExtension()) {
-                continue;
+                $path = $file->getPathname();
             }
 
             // let the model determine how to parse the data
-            $data = $model->newInstance()->fromPath($file->getPathname());
+            $data = $model->newInstance()->fromPath($path);
 
             if (! $data) {
                 continue;
@@ -95,23 +91,17 @@ class StacheDriver implements Driver
             $row = array_merge(
                 $data,
                 [
-                    'path' => $file->getRealPath(),
-                    'file_path_read_from' => $file->getRealPath(),
+                    'path' => $path,
+                    'file_path_read_from' => $path,
                 ]
             );
 
-            // @TODO: this assumes origin, the splitting needs moved to the model
-            // if indeed its even necessary
-            if ($row['origin'] ?? false) {
-                $withOrigin->push($row);
-            } else {
-                $withoutOrigin->push($row);
-            }
+            $collection->push($row);
         }
 
         ray()->measure('reading_flatfiles: '.get_class($model));
 
-        return $withoutOrigin->concat($withOrigin);
+        return $collection;
     }
 
     public function filepath(string $directory, Model $model): string
