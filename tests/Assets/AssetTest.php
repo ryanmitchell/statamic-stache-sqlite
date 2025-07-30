@@ -16,7 +16,6 @@ use Mockery;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Test;
 use ReflectionClass;
-use Statamic\Assets\Asset;
 use Statamic\Assets\AssetContainer;
 use Statamic\Assets\PendingMeta;
 use Statamic\Assets\ReplacementFile;
@@ -43,6 +42,7 @@ use Statamic\Support\Arr;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\PreventSavingStacheItemsToDisk;
 use Tests\TestCase;
+use Thoughtco\StatamicStacheSqlite\Assets\Asset;
 
 class AssetTest extends TestCase
 {
@@ -429,7 +429,7 @@ class AssetTest extends TestCase
     public function calling_unknown_method_throws_exception()
     {
         $this->expectException(BadMethodCallException::class);
-        $this->expectExceptionMessage('Call to undefined method Statamic\Assets\Asset::thisFieldDoesntExist()');
+        $this->expectExceptionMessage('Call to undefined method Thoughtco\StatamicStacheSqlite\Assets\Asset::thisFieldDoesntExist()');
 
         (new Asset)->path('test.txt')->container($this->container)->thisFieldDoesntExist();
     }

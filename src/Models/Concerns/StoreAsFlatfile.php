@@ -40,7 +40,7 @@ trait StoreAsFlatfile
         if (
             Flatfile::isTesting() ||
             filemtime($modelFile) > filemtime(Flatfile::getDatabasePath()) ||
-            $driver->shouldRestoreCache((new static), static::getFlatfilePath()) ||
+            $driver->shouldRestoreCache((new static), static::getFlatfilePaths()) ||
             ! static::resolveConnection()->getSchemaBuilder()->hasTable((new static)->getTable())
         ) {
             (new static)->migrate();
@@ -59,7 +59,7 @@ trait StoreAsFlatfile
 
             $status = $driver->save(
                 $model,
-                static::getFlatfilePath($model)
+                static::getFlatfilePaths($model)
             );
 
             event(new FlatfileCreated($model));
@@ -76,7 +76,7 @@ trait StoreAsFlatfile
 
             $status = $driver->save(
                 $model,
-                static::getFlatfilePath($model)
+                static::getFlatfilePaths($model)
             );
 
             event(new FlatfileUpdated($model));
@@ -91,7 +91,7 @@ trait StoreAsFlatfile
 
             $status = Flatfile::driver(static::getFlatfileDriver())->delete(
                 $model,
-                static::getFlatfilePath($model)
+                static::getFlatfilePaths($model)
             );
 
             event(new FlatfileDeleted($model));
@@ -121,11 +121,6 @@ trait StoreAsFlatfile
         }
 
         return 'orbit';
-    }
-
-    public function getIncrementing()
-    {
-        return false;
     }
 
     public function migrate()
@@ -162,41 +157,44 @@ trait StoreAsFlatfile
 
         $driver = Flatfile::driver(static::getFlatfileDriver());
 
-        $files = $driver->all($this, static::getFlatfilePath());
+        foreach (static::getFlatfilePaths() as $directory) {
+            $files = $driver->all($this, $directory);
 
-        ray()->measure('inserting_flatfiles: '.get_class($this));
+            ray()->measure('inserting_flatfiles: '.get_class($this).' directory: '.$directory);
 
-        $files
-            ->filter()
-            ->map(fn ($row) => $this->prepareDataForModel($row))
-            ->chunk(500)
-            ->each(function (Collection $chunk) {
-                $insertWithoutUpdate = $chunk->map(function ($row) {
-                    unset($row['updateAfterInsert']);
+            $files
+                ->filter()
+                ->map(fn ($row) => $this->prepareDataForModel($row))
+                ->chunk(500)
+                ->each(function (Collection $chunk) {
+                    $insertWithoutUpdate = $chunk->map(function ($row) {
+                        unset($row['updateAfterInsert']);
 
-                    return $row;
+                        return $row;
+                    });
+
+                    static::insert($insertWithoutUpdate->toArray());
+                })
+                // @TODO: if we can avoid the need for this it reduces the build time on the test site from (2s to 200ms)
+                // it would also allow us to switch to using lazy collections
+                ->each(function (Collection $chunk) {
+                    // some data needs to be added after the initial insert
+                    $chunk->each(function ($row) {
+                        if (! isset($row['updateAfterInsert'])) {
+                            return;
+                        }
+
+                        if (! $values = $row['updateAfterInsert']()) {
+                            return;
+                        }
+
+                        static::newQuery()->where('id', $row['id'])->update($values);
+                    });
                 });
 
-                static::insert($insertWithoutUpdate->toArray());
-            })
-            // @TODO: if we can avoid the need for this it reduces the build time on the test site from (2s to 200ms)
-            // it would also allow us to switch to using lazy collections
-            ->each(function (Collection $chunk) {
-                // some data needs to be added after the initial insert
-                $chunk->each(function ($row) {
-                    if (! isset($row['updateAfterInsert'])) {
-                        return;
-                    }
+            ray()->measure('inserting_flatfiles: '.get_class($this).' directory: '.$directory);
 
-                    if (! $values = $row['updateAfterInsert']()) {
-                        return;
-                    }
-
-                    static::newQuery()->where('id', $row['id'])->update($values);
-                });
-            });
-
-        ray()->measure('inserting_flatfiles: '.get_class($this));
+        }
     }
 
     protected function getSchemaColumns(): array
@@ -259,9 +257,9 @@ trait StoreAsFlatfile
 
         $fs = new Filesystem;
 
-        $fs->ensureDirectoryExists(
-            static::getFlatfilePath()
-        );
+        foreach (static::getFlatfilePaths() as $path) {
+            $fs->ensureDirectoryExists($path);
+        }
 
         $database = Flatfile::getDatabasePath();
 
@@ -275,14 +273,18 @@ trait StoreAsFlatfile
         return true;
     }
 
-    public static function getFlatfileName()
+    public static function getFlatfileName(): string
     {
         return (string) Str::of(class_basename(static::class))->snake()->lower()->plural();
     }
 
-    public static function getFlatfilePath()
+    public static function getFlatfilePaths(?Model $model = null)
     {
-        return base_path('content').DIRECTORY_SEPARATOR.static::getFlatfileName();
+        $directories = [
+            base_path('content').DIRECTORY_SEPARATOR.static::getFlatfileName(),
+        ];
+
+        return $model ? $directories[0] : $directories;
     }
 
     public function callTraitMethod(string $method, ...$args)

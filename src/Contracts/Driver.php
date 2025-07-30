@@ -7,7 +7,7 @@ use Illuminate\Support\Collection;
 
 interface Driver
 {
-    public function shouldRestoreCache(Model $model, string $directory): bool;
+    public function shouldRestoreCache(Model $model, array $directories): bool;
 
     public function save(Model $model, string $directory): bool;
 

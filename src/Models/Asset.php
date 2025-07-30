@@ -8,8 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\File;
 use Statamic\Contracts\Assets\Asset as AssetContract;
+use Statamic\Facades\AssetContainer;
 use Statamic\Facades\Site;
-use Statamic\Facades\Stache;
 use Statamic\Facades\YAML;
 use Statamic\Support\Arr;
 use Statamic\Support\Str;
@@ -34,9 +34,16 @@ class Asset extends Model
         return 'id';
     }
 
-    public static function getFlatfilePath()
+    public static function getFlatfilePaths(?Model $model = null)
     {
-        return rtrim(Stache::store('assets')->directory(), '/');
+        $directories = AssetContainer::all()->map->path()->toArray();
+
+        dd($directories);
+    }
+
+    public function getIncrementing()
+    {
+        return false;
     }
 
     public function makeContract()

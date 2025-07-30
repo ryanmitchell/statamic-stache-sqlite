@@ -40,9 +40,18 @@ class Entry extends Model
         return 'id';
     }
 
-    public static function getFlatfilePath()
+    public static function getFlatfilePaths(?Model $model = null)
     {
-        return rtrim(Stache::store('entries')->directory(), '/');
+        $directories = [
+            rtrim(Stache::store('entries')->directory(), '/'),
+        ];
+
+        return $model ? $directories[0] : $directories;
+    }
+
+    public function getIncrementing()
+    {
+        return false;
     }
 
     public function makeContract()
@@ -120,7 +129,7 @@ class Entry extends Model
 
     public function fromPathAndContents(string $originalPath, string $contents)
     {
-        $path = Str::after($originalPath, static::getFlatfilePath().DIRECTORY_SEPARATOR);
+        $path = Str::after($originalPath, static::getFlatfilePaths((new static)).DIRECTORY_SEPARATOR);
 
         [$collectionHandle, $site] = $this->extractAttributesFromPath($path);
 
@@ -231,7 +240,7 @@ class Entry extends Model
             }
         }
 
-        $model->path = Str::of($entry->buildPath())->after(static::getFlatfilePath().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
+        $model->path = Str::of($entry->buildPath())->after(static::getFlatfilePaths($model).DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
         $model->uri = $entry->uri();
         $model->origin = $entry->origin()?->id();
 

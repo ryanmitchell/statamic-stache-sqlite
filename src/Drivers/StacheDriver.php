@@ -18,7 +18,7 @@ use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
 
 class StacheDriver implements Driver
 {
-    public function shouldRestoreCache(Model $model, string $directory): bool
+    public function shouldRestoreCache(Model $model, array $directories): bool
     {
         // if there is no watcher, dont rebuild the cache
         if (! Stache::isWatcherEnabled()) {
@@ -27,9 +27,11 @@ class StacheDriver implements Driver
 
         $databaseLastUpdated = filemtime(Flatfile::getDatabasePath());
 
-        foreach (new FilesystemIterator($directory) as $file) {
-            if ($file->getMTime() > $databaseLastUpdated) {
-                return true;
+        foreach ($directories as $directory) {
+            foreach (new FilesystemIterator($directory) as $file) {
+                if ($file->getMTime() > $databaseLastUpdated) {
+                    return true;
+                }
             }
         }
 

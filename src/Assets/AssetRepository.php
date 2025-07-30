@@ -6,7 +6,7 @@ use Statamic\Contracts\Assets\Asset as AssetContract;
 use Statamic\Contracts\Assets\QueryBuilder as QueryBuilderContract;
 use Statamic\Facades\Blink;
 use Thoughtco\StatamicStacheSqlite\Asset\AssetQueryBuilder;
-use ThoughtCo\StatamicStacheSqlite\Models\Asset as AssetModel;
+use Thoughtco\StatamicStacheSqlite\Models\Asset as AssetModel;
 
 class AssetRepository extends \Statamic\Assets\AssetRepository
 {
