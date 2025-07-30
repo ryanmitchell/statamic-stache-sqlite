@@ -57,6 +57,8 @@ trait StoreAsFlatfile
 
             $driver = Flatfile::driver(static::getFlatfileDriver());
 
+            // @TODO: move this to the model (writeFlatfile, deleteFlatfile) or something?
+            // maybe we dont need the driver
             $status = $driver->save(
                 $model,
                 $model->getFlatFileRootDirectory()
