@@ -61,8 +61,10 @@ class StacheDriver implements Driver
 
     public function all(Model $model, string $directory): Collection
     {
-        ray()->measure('reading_flatfiles');
+        ray()->measure('reading_flatfiles: '.get_class($model));
 
+        // @TODO: change this to be a lazy collection from a memory and speed perspective
+        // if so, chunk in StoreAsFlatFile will also need changed
         $withoutOrigin = Collection::make();
         $withOrigin = Collection::make();
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
@@ -77,7 +79,7 @@ class StacheDriver implements Driver
                 continue;
             }
 
-            if ($file->getExtension() !== 'md') {
+            if ($file->getExtension() !== $model->fileExtension()) {
                 continue;
             }
 
@@ -96,6 +98,8 @@ class StacheDriver implements Driver
                 ]
             );
 
+            // @TODO: this assumes origin, the splitting needs moved to the model
+            // if indeed its even necessary
             if ($row['origin'] ?? false) {
                 $withOrigin->push($row);
             } else {
@@ -103,7 +107,7 @@ class StacheDriver implements Driver
             }
         }
 
-        ray()->measure('reading_flatfiles');
+        ray()->measure('reading_flatfiles: '.get_class($model));
 
         return $withoutOrigin->concat($withOrigin);
     }

@@ -123,10 +123,13 @@ trait StoreAsFlatfile
         return 'orbit';
     }
 
+    public function getIncrementing()
+    {
+        return false;
+    }
+
     public function migrate()
     {
-        ray('migrate');
-
         $table = $this->getTable();
 
         /** @var \Illuminate\Database\Schema\Builder $schema */
@@ -161,7 +164,7 @@ trait StoreAsFlatfile
 
         $files = $driver->all($this, static::getFlatfilePath());
 
-        ray()->measure('inserting_flatfiles');
+        ray()->measure('inserting_flatfiles: '.get_class($this));
 
         $files
             ->filter()
@@ -192,7 +195,7 @@ trait StoreAsFlatfile
                 });
             });
 
-        ray()->measure('inserting_flatfiles');
+        ray()->measure('inserting_flatfiles: '.get_class($this));
     }
 
     protected function getSchemaColumns(): array

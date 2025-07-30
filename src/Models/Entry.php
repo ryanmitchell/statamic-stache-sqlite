@@ -45,11 +45,6 @@ class Entry extends Model
         return rtrim(Stache::store('entries')->directory(), '/');
     }
 
-    public function getIncrementing()
-    {
-        return false;
-    }
-
     public function makeContract()
     {
         $contract = (new \Thoughtco\StatamicStacheSqlite\Entries\Entry);
