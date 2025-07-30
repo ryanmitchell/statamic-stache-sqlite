@@ -29,7 +29,21 @@ class AssetRepository extends \Statamic\Assets\AssetRepository
             ->fromContract($asset)
             ->touch();
 
-        $model->save();
+        $cache = $asset->container()->contents();
+
+        $cache->add($asset->path());
+
+        if ($asset->path() !== ($originalPath = $asset->getOriginal('path'))) {
+            $cache->forget($originalPath);
+        }
+
+        $cache->save();
+
+        if ($model->isDirty()) {
+            $model->save();
+        } else {
+            $model->writeFlatFile();
+        }
 
         $asset->model($model);
 
@@ -48,6 +62,9 @@ class AssetRepository extends \Statamic\Assets\AssetRepository
                 'folder' => $asset->folder(),
                 'basename' => $asset->basename(),
             ])
-            ->delete();
+            ->get()
+            ->each(fn ($asset) => $asset->model()?->delete());
+
+        $asset->container()->contents()->forget($asset->path())->save();
     }
 }

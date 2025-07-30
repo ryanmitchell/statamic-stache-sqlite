@@ -60,7 +60,6 @@ class Asset extends Model
         $contract->cacheStore()->forever($contract->metaCacheKey(), $meta);
 
         $contract->model($this);
-        $contract->hydrate();
 
         return $contract;
     }
@@ -131,9 +130,10 @@ class Asset extends Model
             $model->$key = $asset->{$key}();
         }
 
-        $meta = $meta ?? $asset->meta();
-        foreach (['duration', 'height', 'last_modified', 'mime_type', 'size', 'width'] as $key) {
-            $model->$key = $meta[$key] ?? null;
+        if ($meta = ($meta ?? $asset->meta())) {
+            foreach (['duration', 'height', 'last_modified', 'mime_type', 'size', 'width'] as $key) {
+                $model->$key = $meta[$key] ?? null;
+            }
         }
 
         $model->data = $asset->data()->all();
@@ -151,8 +151,6 @@ class Asset extends Model
         $asset = $this->makeInstanceFromData($data);
         $asset->model($this);
 
-        $asset->hydrate();
-
         return $asset;
     }
 
@@ -162,12 +160,13 @@ class Asset extends Model
         // ensure it doesnt need to get regenerated
         $asset = (new \Thoughtco\StatamicStacheSqlite\Assets\Asset)
             ->path($data['path'])
-            ->container($data['container'])
-            ->syncOriginal();
+            ->container($data['container']);
 
         // add meta to the cache store so it gets resolved by pending meta
         $meta = Arr::except($data, ['id', 'file_path_read_from', 'container', 'path', 'folder', 'basename', 'filename', 'extension', 'created_at', 'updated_at']);
         $asset->cacheStore()->forever($asset->metaCacheKey, $meta);
+
+        $asset->hydrate();
 
         return $asset;
     }
@@ -220,7 +219,7 @@ class Asset extends Model
         return (string) Str::of($path)->replaceFirst('./', '')->ltrim('/');
     }
 
-    public function writeFlatfile(Driver $driver)
+    public function writeFlatfile(?Driver $driver = null)
     {
         Storage::disk(AssetContainer::findByHandle($this->container)->disk)->put($this->metaPath($this->path), $this->fileContents());
 

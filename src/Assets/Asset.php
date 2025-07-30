@@ -4,7 +4,6 @@ namespace Thoughtco\StatamicStacheSqlite\Assets;
 
 use Statamic\Assets\Asset as FileAsset;
 use Statamic\Facades\AssetContainer as AssetContainerAPI;
-use Thoughtco\StatamicStacheSqlite\Drivers\StacheDriver;
 use Thoughtco\StatamicStacheSqlite\Models\Asset as AssetModel;
 
 class Asset extends FileAsset
@@ -24,11 +23,13 @@ class Asset extends FileAsset
 
     public function writeMeta($meta)
     {
+        parent::writeMeta($meta);
+
         $model = $this->model() ?? AssetModel::find($this->id()) ?? AssetModel::make();
+        $model->fromContract($this, $meta);
+        $model->data = $meta;
 
-        // $model->fromContract($this, $meta)->writeFlatfile(new StacheDriver);
-
-        $this->model($model); // we dont actually write...
+        $this->model($model); // @TODO: we dont actually save until the asset is saved, not sure why, but its how files are done
     }
 
     public function container($container = null)
