@@ -27,7 +27,9 @@ class AssetRepository extends \Statamic\Assets\AssetRepository
 
         $model
             ->fromContract($asset)
-            ->save();
+            ->touch();
+
+        $model->save();
 
         $asset->model($model);
 

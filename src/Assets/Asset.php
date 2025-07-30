@@ -4,6 +4,7 @@ namespace Thoughtco\StatamicStacheSqlite\Assets;
 
 use Statamic\Assets\Asset as FileAsset;
 use Statamic\Facades\AssetContainer as AssetContainerAPI;
+use Thoughtco\StatamicStacheSqlite\Drivers\StacheDriver;
 use Thoughtco\StatamicStacheSqlite\Models\Asset as AssetModel;
 
 class Asset extends FileAsset
@@ -25,7 +26,7 @@ class Asset extends FileAsset
     {
         $model = $this->model() ?? AssetModel::find($this->id()) ?? AssetModel::make();
 
-        $model->fromContract($this, $meta)->saveQuietly();
+        // $model->fromContract($this, $meta)->writeFlatfile(new StacheDriver);
 
         $this->model($model); // we dont actually write...
     }

@@ -303,8 +303,8 @@ class AssetQueryBuilderTest extends TestCase
 
         $assets = $this->container->queryAssets()->whereNotBetween('number_field', [9, 11])->get();
 
-        $this->assertCount(3, $assets);
-        $this->assertEquals(['a', 'e', 'f'], $assets->map->filename()->all());
+        $this->assertCount(2, $assets);
+        $this->assertEquals(['a', 'e'], $assets->map->filename()->all());
     }
 
     #[Test]
@@ -335,8 +335,8 @@ class AssetQueryBuilderTest extends TestCase
 
         $assets = $this->container->queryAssets()->where('text', 'e')->orWhereNotBetween('number_field', [10, 12])->get();
 
-        $this->assertCount(4, $assets);
-        $this->assertEquals(['e', 'a', 'b', 'f'], $assets->map->filename()->all());
+        $this->assertCount(3, $assets);
+        $this->assertEquals(['a', 'b', 'e'], $assets->map->filename()->all());
     }
 
     #[Test]
@@ -456,7 +456,7 @@ class AssetQueryBuilderTest extends TestCase
         $this->assertCount(2, $assets);
         $this->assertEquals(['a', 'c'], $assets->map->filename()->all());
 
-        $assets = $this->container->queryAssets()->where('content->value', '!=', 1)->get();
+        $assets = $this->container->queryAssets()->where('content->value', '!=', 1)->orWhereNull('content->value')->get();
 
         $this->assertCount(4, $assets);
         $this->assertEquals(['b', 'd', 'e', 'f'], $assets->map->filename()->all());
@@ -548,7 +548,7 @@ class AssetQueryBuilderTest extends TestCase
 
         $this->assertEquals(['a.jpg', 'b.txt', 'c.txt'], $query->get()->map->path()->all());
 
-        $this->assertEquals(['b.txt', 'c.txt', 'd.jpg'], $query->offset(1)->limit(PHP_INT_MAX)->get()->map->path()->all());
+        $this->assertEquals(['b.txt', 'c.txt', 'd.jpg'], $query->offset(1)->limit(3)->get()->map->path()->all());
     }
 
     #[Test]

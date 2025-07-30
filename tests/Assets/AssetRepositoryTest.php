@@ -6,13 +6,13 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\Test;
-use Statamic\Assets\AssetRepository;
 use Statamic\Contracts\Assets\Asset as AssetContract;
 use Statamic\Exceptions\AssetNotFoundException;
 use Statamic\Facades\Asset;
 use Statamic\Facades\AssetContainer;
 use Tests\PreventSavingStacheItemsToDisk;
 use Tests\TestCase;
+use Thoughtco\StatamicStacheSqlite\Assets\AssetRepository;
 
 class AssetRepositoryTest extends TestCase
 {

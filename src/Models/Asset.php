@@ -60,15 +60,21 @@ class Asset extends Model
         $contract->cacheStore()->forever($contract->metaCacheKey(), $meta);
 
         $contract->model($this);
-        $contract->syncOriginal();
+        $contract->hydrate();
 
         return $contract;
     }
 
     public function fromPath(string $handle, string $originalPath)
     {
-        if (! $meta = AssetContainer::findByHandle($handle)->disk()->get($this->metaPath($originalPath))) {
-            return null;
+        $disk = Storage::disk(AssetContainer::findByHandle($handle)->disk); // yup, all this to allow us to Storage::fake(), yuck
+
+        if (! $meta = $disk->get($this->metaPath($originalPath))) {
+            if ($disk->get($originalPath) === null) {
+                return null;
+            }
+
+            $meta = '';
         }
 
         return $this->fromPathAndContents($handle.'::'.$originalPath, $meta ?? '');
@@ -126,11 +132,12 @@ class Asset extends Model
         }
 
         $meta = $meta ?? $asset->meta();
-        foreach (['data', 'duration', 'height', 'last_modified', 'mime_type', 'size', 'width'] as $key) {
+        foreach (['duration', 'height', 'last_modified', 'mime_type', 'size', 'width'] as $key) {
             $model->$key = $meta[$key] ?? null;
         }
 
-        $model->path = Storage::disk($asset->container()->disk)->path($asset->path());
+        $model->data = $asset->data()->all();
+        $model->path = $asset->path();
 
         return $model;
     }
@@ -144,7 +151,7 @@ class Asset extends Model
         $asset = $this->makeInstanceFromData($data);
         $asset->model($this);
 
-        $asset->syncOriginal();
+        $asset->hydrate();
 
         return $asset;
     }
@@ -215,14 +222,14 @@ class Asset extends Model
 
     public function writeFlatfile(Driver $driver)
     {
-        AssetContainer::findByHandle($this->container)->disk()->put($this->metaPath($this->path), $this->fileContents());
+        Storage::disk(AssetContainer::findByHandle($this->container)->disk)->put($this->metaPath($this->path), $this->fileContents());
 
         return true;
     }
 
     public function deleteFlatfile(Driver $driver)
     {
-        AssetContainer::findByHandle($this->container)->disk()->delete($this->metaPath($this->path));
+        Storage::disk(AssetContainer::findByHandle($this->container)->disk)->delete($this->metaPath($this->path));
 
         return true;
     }
