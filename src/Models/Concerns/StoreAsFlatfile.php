@@ -180,6 +180,7 @@ trait StoreAsFlatfile
                 static::insert($insertWithoutUpdate->toArray());
             })
             // @TODO: if we can avoid the need for this it reduces the build time on the test site from (2s to 200ms)
+            // it would also allow us to switch to using lazy collections
             ->each(function (Collection $chunk) {
                 // some data needs to be added after the initial insert
                 $chunk->each(function ($row) {
