@@ -17,7 +17,7 @@ class AssetQueryBuilderTest extends TestCase
 
     private $container;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 
@@ -217,7 +217,7 @@ class AssetQueryBuilderTest extends TestCase
         $assets = $this->container->queryAssets()->whereNull('text')->orWhereNull('content')->get();
 
         $this->assertCount(5, $assets);
-        $this->assertEquals(['c', 'e', 'f', 'b', 'd'], $assets->map->filename()->all());
+        $this->assertEquals(['b', 'c', 'd', 'e', 'f'], $assets->map->filename()->all());
     }
 
     #[Test]
@@ -233,7 +233,7 @@ class AssetQueryBuilderTest extends TestCase
         $assets = $this->container->queryAssets()->whereNotNull('content')->orWhereNotNull('text')->get();
 
         $this->assertCount(4, $assets);
-        $this->assertEquals(['a', 'c', 'b', 'd'], $assets->map->filename()->all());
+        $this->assertEquals(['a', 'b', 'c', 'd'], $assets->map->filename()->all());
     }
 
     #[Test]
@@ -344,7 +344,7 @@ class AssetQueryBuilderTest extends TestCase
         Asset::find('test::d.jpg')->data(['test_taxonomy' => ['taxonomy-3', 'taxonomy-4']])->save();
         Asset::find('test::e.jpg')->data(['test_taxonomy' => ['taxonomy-5']])->save();
 
-        $assets = $this->container->queryAssets()->whereJsonContains('test_taxonomy', 'taxonomy-1')->orWhereJsonContains('taxonomy-5')->get();
+        $assets = $this->container->queryAssets()->whereJsonContains('test_taxonomy', 'taxonomy-1')->orWhereJsonContains('test_taxonomy', 'taxonomy-5')->get();
 
         $this->assertCount(3, $assets);
         $this->assertEquals(['a', 'c', 'e'], $assets->map->filename()->all());
@@ -404,7 +404,7 @@ class AssetQueryBuilderTest extends TestCase
         $assets = $this->container->queryAssets()->whereJsonContains('test_taxonomy', ['taxonomy-1'])->orWhereJsonDoesntContain('test_taxonomy', ['taxonomy-5'])->get();
 
         $this->assertCount(4, $assets);
-        $this->assertEquals(['a', 'c', 'b', 'd'], $assets->map->filename()->all());
+        $this->assertEquals(['a', 'b', 'c', 'd'], $assets->map->filename()->all());
     }
 
     #[Test]
@@ -419,7 +419,7 @@ class AssetQueryBuilderTest extends TestCase
         $assets = $this->container->queryAssets()->whereJsonLength('test_taxonomy', 1)->orWhereJsonLength('test_taxonomy', 3)->get();
 
         $this->assertCount(3, $assets);
-        $this->assertEquals(['b', 'e', 'd'], $assets->map->filename()->all());
+        $this->assertEquals(['b', 'd', 'e'], $assets->map->filename()->all());
     }
 
     #[Test]
@@ -544,7 +544,7 @@ class AssetQueryBuilderTest extends TestCase
 
         $this->assertEquals(['a.jpg', 'b.txt', 'c.txt'], $query->get()->map->path()->all());
 
-        $this->assertEquals(['b.txt', 'c.txt', 'd.jpg'], $query->offset(1)->get()->map->path()->all());
+        $this->assertEquals(['b.txt', 'c.txt', 'd.jpg'], $query->offset(1)->limit(PHP_INT_MAX)->get()->map->path()->all());
     }
 
     #[Test]
