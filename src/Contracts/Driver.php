@@ -4,7 +4,7 @@ namespace Thoughtco\StatamicStacheSqlite\Contracts;
 
 use Closure;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
+use Illuminate\Support\LazyCollection;
 
 interface Driver
 {
@@ -14,5 +14,5 @@ interface Driver
 
     public function delete(Model $model): bool;
 
-    public function all(Model $model, string $handle, Closure $fileResolver): Collection;
+    public function all(Model $model, string $handle, Closure $fileResolver): LazyCollection;
 }

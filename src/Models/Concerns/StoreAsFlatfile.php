@@ -5,7 +5,7 @@ namespace Thoughtco\StatamicStacheSqlite\Models\Concerns;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Collection;
+use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Str;
 use ReflectionClass;
 use Statamic\Facades\YAML;
@@ -113,7 +113,6 @@ trait StoreAsFlatfile
 
     public function migrate()
     {
-        ray('migrate');
         $table = $this->getTable();
 
         /** @var \Illuminate\Database\Schema\Builder $schema */
@@ -149,14 +148,11 @@ trait StoreAsFlatfile
         foreach (static::getFlatfileResolvers() as $handle => $directory) {
             $files = $driver->all($this, $handle, $directory);
 
-            ray()->measure('inserting_flatfiles: '.get_class($this));
-
             $files
-                ->filter()
-                ->map(fn ($row) => $this->prepareDataForModel($row))
                 ->chunk(500)
-                ->each(function (Collection $chunk) {
+                ->each(function (LazyCollection $chunk) {
                     $insertWithoutUpdate = $chunk->map(function ($row) {
+                        $row = $this->prepareDataForModel($row);
                         unset($row['updateAfterInsert']);
 
                         return $row;
@@ -170,7 +166,7 @@ trait StoreAsFlatfile
                 })
                 // @TODO: if we can avoid the need for this it reduces the build time on the test site from (2s to 200ms)
                 // it would also allow us to switch to using lazy collections
-                ->each(function (Collection $chunk) {
+                ->each(function (LazyCollection $chunk) {
                     // some data needs to be added after the initial insert
                     $chunk->each(function ($row) {
                         if (! isset($row['updateAfterInsert'])) {
@@ -185,9 +181,9 @@ trait StoreAsFlatfile
                     });
                 });
 
-            ray()->measure('inserting_flatfiles: '.get_class($this));
-
         }
+
+        ray()->measure();
     }
 
     protected function getSchemaColumns(): array

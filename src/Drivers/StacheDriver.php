@@ -3,7 +3,7 @@
 namespace Thoughtco\StatamicStacheSqlite\Drivers;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
+use Illuminate\Support\LazyCollection;
 use Statamic\Entries\GetSuffixFromPath;
 use Statamic\Entries\RemoveSuffixFromPath;
 use Statamic\Facades\File;
@@ -44,38 +44,32 @@ class StacheDriver implements Driver
         return $model->deleteFlatfile($this);
     }
 
-    public function all(Model $model, string $handle, \Closure $fileResolver): Collection
+    public function all(Model $model, string $handle, \Closure $fileResolver): LazyCollection
     {
-        ray()->measure('reading_flatfiles: '.get_class($model));
+        return LazyCollection::make(function () use ($model, $handle, $fileResolver) {
 
-        // @TODO: change this to be a lazy collection from a memory and speed perspective
-        // if so, chunk in StoreAsFlatFile will also need changed
-        $collection = Collection::make();
+            /** @var string $path */
+            foreach ($fileResolver() as $path) {
 
-        /** @var string $path */
-        foreach ($fileResolver() as $path) {
+                // let the model determine how to parse the data
+                $data = $model->newInstance()->fromPath($handle, $path);
 
-            // let the model determine how to parse the data
-            $data = $model->newInstance()->fromPath($handle, $path);
+                if (! $data) {
+                    continue;
+                }
 
-            if (! $data) {
-                continue;
+                $row = array_merge(
+                    $data,
+                    [
+                        'path' => $path,
+                        'file_path_read_from' => $path,
+                    ]
+                );
+
+                yield $row;
             }
 
-            $row = array_merge(
-                $data,
-                [
-                    'path' => $path,
-                    'file_path_read_from' => $path,
-                ]
-            );
-
-            $collection->push($row);
-        }
-
-        ray()->measure('reading_flatfiles: '.get_class($model));
-
-        return $collection;
+        });
     }
 
     // @TODO: should this be moved to StoreAsFlatfile

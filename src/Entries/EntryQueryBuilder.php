@@ -107,7 +107,7 @@ class EntryQueryBuilder extends EloquentQueryBuilder implements QueryBuilder
         return parent::whereIn(...func_get_args());
     }
 
-    // @TODO: this should be a PR to the EloquentQueryBuilder class in core
+    // @TODO: this has been raised as a PR to core
     public function whereTime($column, $operator, $value = null, $boolean = 'and')
     {
         [$value, $operator] = $this->prepareValueAndOperator(

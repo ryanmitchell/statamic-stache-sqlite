@@ -37,7 +37,7 @@ class Asset extends FileAsset
         return $this
             ->fluentlyGetOrSet('container')
             ->setter(function ($container) {
-                return is_string($container) ? AssetContainerAPI::findByHandle($container) : $container; // @TODO: literally done this to avoid needing to add find() to a bunch of mockery calls
+                return is_string($container) ? AssetContainerAPI::findByHandle($container) : $container; // @TODO: literally done this to avoid needing to add find() to a bunch of mockery calls, long term we update the tests
             })
             ->args(func_get_args());
     }
