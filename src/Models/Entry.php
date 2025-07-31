@@ -59,7 +59,7 @@ class Entry extends Model
 
                 $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
 
-                $files = [];
+                // $files = [];
                 foreach ($iterator as $file) {
                     if ($file->isDir()) {
                         continue;
@@ -69,10 +69,12 @@ class Entry extends Model
                         continue;
                     }
 
-                    $files[] = $file->getPathname();
+                    yield $file->getPathname();
+
+                    // $files[] = $file->getPathname();
                 }
 
-                return $files;
+                // return $files;
             },
         ];
     }
@@ -90,10 +92,6 @@ class Entry extends Model
             ->map(function ($_, $key) {
                 $value = $this->{$key};
 
-                if ($value instanceof \BackedEnum) {
-                    return $value->value;
-                }
-
                 if ($value instanceof Carbon) {
                     if ($this->getRawOriginal($key) == '') {
                         return null;
@@ -104,7 +102,7 @@ class Entry extends Model
 
                 return $value;
             })
-            ->toArray();
+            ->all();
 
         Blink::store('structure-entries')->put($this->id, $contract);
         Blink::put("entry-{$this->id}", $contract);
@@ -134,16 +132,17 @@ class Entry extends Model
 
     protected function extractAttributesFromPath($path)
     {
-        $site = Site::default()->handle();
         $collection = pathinfo($path, PATHINFO_DIRNAME);
         $collection = Str::after($collection, $path);
 
         if (Site::multiEnabled()) {
             [$collection, $site] = explode('/', $collection);
+        } else {
+            $site = Site::default()->handle(); // sorry Erin, did it this way to avoid calling default every time
         }
 
         // Support entries within subdirectories at any level.
-        if (Str::contains($collection, '/')) {
+        if (str_contains($collection, '/')) {
             $collection = Str::before($collection, '/');
         }
 
@@ -152,16 +151,18 @@ class Entry extends Model
 
     public function fromPath(string $handle, string $originalPath)
     {
-        return $this->fromPathAndContents($originalPath, File::get($originalPath));
+        if (! [$data, $entry] = $this->fromPathAndContents($originalPath, File::get($originalPath))) {
+            return;
+        }
+
+        return $data;
     }
 
     public function fromPathAndContents(string $originalPath, string $contents)
     {
-        $path = Str::after($originalPath, (new static)->getFlatfileRootDirectory().DIRECTORY_SEPARATOR);
+        $path = Str::after($originalPath, $this->getFlatfileRootDirectory().DIRECTORY_SEPARATOR);
 
         [$collectionHandle, $site] = $this->extractAttributesFromPath($path);
-
-        // $collectionHandle = Str::before($path, DIRECTORY_SEPARATOR);
 
         if ($collectionHandle == '.') {
             return;
@@ -172,7 +173,7 @@ class Entry extends Model
             'site' => $site,
         ];
 
-        $collection = Collection::findByHandle($collectionHandle);
+        $collection = Blink::once("collection-{$collectionHandle}", fn () => Collection::findByHandle($collectionHandle));
 
         if ($collection->dated()) {
             $data['date'] = (new GetDateFromPath)($path);
@@ -182,16 +183,16 @@ class Entry extends Model
 
         $columns = Blink::once('entry-columns', fn () => $this->getSchemaColumns());
 
-        $yamlData = YAML::parse($contents);
+        $yamlData = collect(YAML::parse($contents));
 
-        $data = array_merge(
-            collect($columns)->mapWithKeys(fn ($value) => [
+        $data = [
+            ...collect($columns)->mapWithKeys(fn ($value) => [
                 $value => Arr::get(collect(static::$blueprintColumns)->firstWhere('name', $value)?->toArray() ?? [], 'default', ''),
             ])->all(),
-            collect($yamlData)->only($columns)->all(),
-            $data,
-            ['data' => collect($yamlData)->except($columns)->all()]
-        );
+            ...$yamlData->only($columns)->all(),
+            ...$data,
+            ...['data' => $yamlData->except($columns)->all()],
+        ];
 
         $data['path'] = $path;
 
@@ -205,10 +206,10 @@ class Entry extends Model
         Blink::put("entry-{$id}", $entry);
         // Blink::put("origin-Entry-{$id}", $entry); // @TODO: why doensnt this just use entry-{id} ?
 
-        $data['updateAfterInsert'] = function () use ($id) {
-            if (! $entry = \Statamic\Facades\Entry::find($id)) {
-                return [];
-            }
+        $data['updateAfterInsert'] = function () use ($entry) {
+            //            if (! $entry = \Statamic\Facades\Entry::find($id)) {
+            //                return [];
+            //            }
 
             if (! $uri = $entry->uri()) {
                 return [];
@@ -219,7 +220,7 @@ class Entry extends Model
             ];
         };
 
-        return $data;
+        return [$data, $entry];
     }
 
     public function fromContract(EntryContract $entry)
@@ -233,10 +234,8 @@ class Entry extends Model
             $model = $this;
         }
 
-        $collection = $entry->collection();
-
         $model->blueprint = $entry->blueprint()->handle();
-        $model->collection = $collection->handle();
+        $model->collection = $entry->collectionHandle();
         $model->site = $entry->locale();
 
         foreach (['id', 'data', 'date', 'published', 'slug'] as $key) {
@@ -260,11 +259,7 @@ class Entry extends Model
 
     public function makeItemFromFile($path, $contents)
     {
-        $data = $this->fromPathAndContents($path, $contents);
-
-        $data['path'] = $path;
-
-        $entry = $this->makeInstanceFromData($data);
+        [$data, $entry] = $this->fromPathAndContents($path, $contents);
 
         $entry->model($this);
 
@@ -280,7 +275,7 @@ class Entry extends Model
         $path = Arr::pull($data, 'path');
 
         $collectionHandle = $data['collection'];
-        $collection = Collection::findByHandle($collectionHandle);
+        $collection = Blink::once("collection-{$collectionHandle}", fn () => Collection::findByHandle($collectionHandle));
 
         $entry = (new \Thoughtco\StatamicStacheSqlite\Entries\Entry)
             ->id($id)
@@ -297,20 +292,8 @@ class Entry extends Model
             ->published(Arr::pull($data, 'published', true))
             ->data($data['data']);
 
-        $path = Str::of($path)->after($collectionHandle.DIRECTORY_SEPARATOR)->value();
-
-        // handle slugs like xx/yy
-        //        $slugDirectory = Str::of($path)->beforeLast(DIRECTORY_SEPARATOR)->value();
-        //        if ($slugDirectory == $path) {
-        //            $slugDirectory = false;
-        //        }
-
-        $slug = (new GetSlugFromPath)(Str::of($path)->after(DIRECTORY_SEPARATOR)->value());
-
-        //        if ($id == 'pages-directors') {
-        //            //dd($path);
-        //            dd($slug);
-        //        }
+        // @TODO: avoid calling getslugfrompath twice
+        $slug = $data['slug']; // (new GetSlugFromPath)(Str::of($path)->after($collectionHandle.DIRECTORY_SEPARATOR)->after(DIRECTORY_SEPARATOR)->value());
 
         if (! $collection->requiresSlugs() && $slug == $id) {
             $entry->slug(null);
@@ -318,8 +301,11 @@ class Entry extends Model
             $entry->slug($slug);
         }
 
-        if ($collection->dated()) {
-            $entry->date((new GetDateFromPath)($path));
+        // @TODO: avoid calling GetDateFromPath twice
+        // if ($collection->dated()) {
+        if (isset($data['date'])) {
+            // $entry->date((new GetDateFromPath)($path));
+            $entry->date($data['date']);
         }
 
         return $entry;
@@ -363,7 +349,7 @@ class Entry extends Model
             $data = Arr::removeNullValues($data);
         }
 
-        return array_merge($array, $data);
+        return [...$array, ...$data];
     }
 
     public function fileExtension()

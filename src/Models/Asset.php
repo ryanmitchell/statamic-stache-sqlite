@@ -76,7 +76,11 @@ class Asset extends Model
             $meta = '';
         }
 
-        return $this->fromPathAndContents($handle.'::'.$originalPath, $meta ?? '', $metaFileExists);
+        if (! [$data, $asset] = $this->fromPathAndContents($handle.'::'.$originalPath, $meta ?? '', $metaFileExists)) {
+            return null;
+        }
+
+        return $data;
     }
 
     public function fromPathAndContents(string $originalPath, string $contents, bool $metaFileExists = false)
@@ -109,9 +113,9 @@ class Asset extends Model
             $data['id'] = $data['container'].'::'.$data['path'];
         }
 
-        $this->makeInstanceFromData($data);
+        $asset = $this->makeInstanceFromData($data);
 
-        return $data;
+        return [$data, $asset];
     }
 
     public function fromContract(AssetContract $asset, ?array $meta = [])
@@ -146,12 +150,7 @@ class Asset extends Model
 
     public function makeItemFromFile($path, $contents)
     {
-        $data = $this->fromPathAndContents($path, $contents);
-
-        $data['path'] = $path;
-
-        $asset = $this->makeInstanceFromData($data);
-        $asset->model($this);
+        [$data, $asset] = $this->fromPathAndContents($path, $contents);
 
         return $asset;
     }
