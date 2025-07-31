@@ -12,7 +12,7 @@ class Entry extends FileEntry
     public function model($model = null)
     {
         if (! $model) {
-            return $this->model;
+            return $this->model ?? ($this->model = EntryModel::find($this->id()));
         }
 
         $this->model = $model;
