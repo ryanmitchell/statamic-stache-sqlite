@@ -58,15 +58,13 @@ class StacheDriver implements Driver
                     continue;
                 }
 
-                $row = array_merge(
-                    $data,
+                yield [
+                    ...$data,
                     [
                         'path' => $path,
                         'file_path_read_from' => $path,
-                    ]
-                );
-
-                yield $row;
+                    ],
+                ];
             }
 
         });

@@ -125,7 +125,7 @@ trait StoreAsFlatfile
         /** @var \Illuminate\Database\Schema\Blueprint|null $blueprint */
         static::$blueprintColumns = null;
 
-        static::resolveConnection()->getSchemaBuilder()->create($table, function (Blueprint $table) use (&$blueprint) {
+        $schema->create($table, function (Blueprint $table) use (&$blueprint) {
             static::schema($table);
 
             $this->callTraitMethod('schema', $table);
@@ -178,10 +178,7 @@ trait StoreAsFlatfile
                         static::newQuery()->where('id', $row['id'])->update($values);
                     });
                 });
-
         }
-
-        ray()->measure();
     }
 
     protected function getSchemaColumns(): array
@@ -210,7 +207,7 @@ trait StoreAsFlatfile
                     dd($value, $key, $row);
                 }
             })
-            ->toArray();
+            ->all();
 
         foreach ($columns as $column) {
             if (array_key_exists($column, $newRow)) {
