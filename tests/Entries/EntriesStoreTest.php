@@ -40,7 +40,16 @@ class EntriesStoreTest extends TestCase
     {
         $dir = $this->directory;
 
-        $files = (new StacheDriver)->all(EntryModel::make(), $dir);
+        $files = (new StacheDriver)->all(EntryModel::make(), 'handle', function () use ($dir) {
+            $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
+
+            $files = [];
+            foreach ($iterator as $file) {
+                $files[] = $file->getPathname();
+            }
+
+            return $files;
+        });
 
         $this->assertEquals(collect([
             $dir.'/alphabetical/alpha.md',

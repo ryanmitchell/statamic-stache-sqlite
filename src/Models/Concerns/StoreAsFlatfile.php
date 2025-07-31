@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use ReflectionClass;
 use Statamic\Facades\YAML;
 use Statamic\Support\Arr;
+use Thoughtco\StatamicStacheSqlite\Contracts\Driver;
 use Thoughtco\StatamicStacheSqlite\Events\FlatfileCreated;
 use Thoughtco\StatamicStacheSqlite\Events\FlatfileDeleted;
 use Thoughtco\StatamicStacheSqlite\Events\FlatfileUpdated;
@@ -40,7 +41,7 @@ trait StoreAsFlatfile
         if (
             Flatfile::isTesting() ||
             filemtime($modelFile) > filemtime(Flatfile::getDatabasePath()) ||
-            $driver->shouldRestoreCache((new static), static::getFlatfilePath()) ||
+            $driver->shouldRestoreCache((new static), static::getFlatfileResolvers()) ||
             ! static::resolveConnection()->getSchemaBuilder()->hasTable((new static)->getTable())
         ) {
             (new static)->migrate();
@@ -55,12 +56,7 @@ trait StoreAsFlatfile
             // and default values from the SQLite cache.
             // $model->refresh();
 
-            $driver = Flatfile::driver(static::getFlatfileDriver());
-
-            $status = $driver->save(
-                $model,
-                static::getFlatfilePath($model)
-            );
+            $status = Flatfile::driver(static::getFlatfileDriver())->save($model);
 
             event(new FlatfileCreated($model));
 
@@ -72,12 +68,7 @@ trait StoreAsFlatfile
                 return;
             }
 
-            $driver = Flatfile::driver(static::getFlatfileDriver());
-
-            $status = $driver->save(
-                $model,
-                static::getFlatfilePath($model)
-            );
+            $status = Flatfile::driver(static::getFlatfileDriver())->save($model);
 
             event(new FlatfileUpdated($model));
 
@@ -89,10 +80,7 @@ trait StoreAsFlatfile
                 return;
             }
 
-            $status = Flatfile::driver(static::getFlatfileDriver())->delete(
-                $model,
-                static::getFlatfilePath($model)
-            );
+            $status = Flatfile::driver(static::getFlatfileDriver())->delete($model);
 
             event(new FlatfileDeleted($model));
 
@@ -120,13 +108,12 @@ trait StoreAsFlatfile
             return parent::getConnectionName();
         }
 
-        return 'orbit';
+        return 'statamic';
     }
 
     public function migrate()
     {
         ray('migrate');
-
         $table = $this->getTable();
 
         /** @var \Illuminate\Database\Schema\Builder $schema */
@@ -159,40 +146,48 @@ trait StoreAsFlatfile
 
         $driver = Flatfile::driver(static::getFlatfileDriver());
 
-        $files = $driver->all($this, static::getFlatfilePath());
+        foreach (static::getFlatfileResolvers() as $handle => $directory) {
+            $files = $driver->all($this, $handle, $directory);
 
-        ray()->measure('inserting_flatfiles');
+            ray()->measure('inserting_flatfiles: '.get_class($this));
 
-        $files
-            ->filter()
-            ->map(fn ($row) => $this->prepareDataForModel($row))
-            ->chunk(500)
-            ->each(function (Collection $chunk) {
-                $insertWithoutUpdate = $chunk->map(function ($row) {
-                    unset($row['updateAfterInsert']);
+            $files
+                ->filter()
+                ->map(fn ($row) => $this->prepareDataForModel($row))
+                ->chunk(500)
+                ->each(function (Collection $chunk) {
+                    $insertWithoutUpdate = $chunk->map(function ($row) {
+                        unset($row['updateAfterInsert']);
 
-                    return $row;
+                        return $row;
+                    });
+
+                    try {
+                        static::insert($insertWithoutUpdate->toArray());
+                    } catch (\Throwable $e) {
+                        dd($e);
+                    }
+                })
+                // @TODO: if we can avoid the need for this it reduces the build time on the test site from (2s to 200ms)
+                // it would also allow us to switch to using lazy collections
+                ->each(function (Collection $chunk) {
+                    // some data needs to be added after the initial insert
+                    $chunk->each(function ($row) {
+                        if (! isset($row['updateAfterInsert'])) {
+                            return;
+                        }
+
+                        if (! $values = $row['updateAfterInsert']()) {
+                            return;
+                        }
+
+                        static::newQuery()->where('id', $row['id'])->update($values);
+                    });
                 });
 
-                static::insert($insertWithoutUpdate->toArray());
-            })
-            // @TODO: if we can avoid the need for this it reduces the build time on the test site from (2s to 200ms)
-            ->each(function (Collection $chunk) {
-                // some data needs to be added after the initial insert
-                $chunk->each(function ($row) {
-                    if (! isset($row['updateAfterInsert'])) {
-                        return;
-                    }
+            ray()->measure('inserting_flatfiles: '.get_class($this));
 
-                    if (! $values = $row['updateAfterInsert']()) {
-                        return;
-                    }
-
-                    static::newQuery()->where('id', $row['id'])->update($values);
-                });
-            });
-
-        ray()->measure('inserting_flatfiles');
+        }
     }
 
     protected function getSchemaColumns(): array
@@ -255,10 +250,6 @@ trait StoreAsFlatfile
 
         $fs = new Filesystem;
 
-        $fs->ensureDirectoryExists(
-            static::getFlatfilePath()
-        );
-
         $database = Flatfile::getDatabasePath();
 
         if (! $fs->exists($database) && $database !== ':memory:') {
@@ -271,14 +262,19 @@ trait StoreAsFlatfile
         return true;
     }
 
-    public static function getFlatfileName()
+    public static function getFlatfileName(): string
     {
         return (string) Str::of(class_basename(static::class))->snake()->lower()->plural();
     }
 
-    public static function getFlatfilePath()
+    public static function getFlatfileResolvers(): array
     {
-        return base_path('content').DIRECTORY_SEPARATOR.static::getFlatfileName();
+        return [];
+    }
+
+    public function getFlatFileRootDirectory(): string
+    {
+        return '';
     }
 
     public function callTraitMethod(string $method, ...$args)
@@ -331,5 +327,28 @@ trait StoreAsFlatfile
     public function fileExtension()
     {
         return 'yaml';
+    }
+
+    public function deleteFlatfile(Driver $driver)
+    {
+        unlink($driver->filepath($this->getFlatfileRootDirectory(), $this));
+
+        return true;
+    }
+
+    public function writeFlatfile(Driver $driver)
+    {
+        $path = $driver->filepath($this->getFlatfileRootDirectory(), $this);
+
+        if ($this->file_path_read_from && ($path != $this->file_path_read_from)) {
+            unlink($this->file_path_read_from);
+        }
+
+        $fs = new Filesystem;
+        $fs->ensureDirectoryExists(dirname($path));
+
+        file_put_contents($path, $this->fileContents());
+
+        return true;
     }
 }

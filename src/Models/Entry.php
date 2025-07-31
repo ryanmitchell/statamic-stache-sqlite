@@ -2,12 +2,16 @@
 
 namespace Thoughtco\StatamicStacheSqlite\Models;
 
+use FilesystemIterator;
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
+use RecursiveDirectoryIterator;
+use RecursiveIteratorIterator;
 use Statamic\Contracts\Entries\Entry as EntryContract;
 use Statamic\Entries\GetDateFromPath;
 use Statamic\Entries\GetSlugFromPath;
@@ -40,9 +44,37 @@ class Entry extends Model
         return 'id';
     }
 
-    public static function getFlatfilePath()
+    public function getFlatfileRootDirectory(): string
     {
         return rtrim(Stache::store('entries')->directory(), '/');
+    }
+
+    public static function getFlatfileResolvers(): array
+    {
+        return [
+            'collection-entries' => function () {
+                $directory = rtrim(Stache::store('entries')->directory(), '/');
+
+                (new Filesystem)->ensureDirectoryExists($directory);
+
+                $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
+
+                $files = [];
+                foreach ($iterator as $file) {
+                    if ($file->isDir()) {
+                        continue;
+                    }
+
+                    if ($file->getExtension() !== 'md') {
+                        continue;
+                    }
+
+                    $files[] = $file->getPathname();
+                }
+
+                return $files;
+            },
+        ];
     }
 
     public function getIncrementing()
@@ -118,14 +150,14 @@ class Entry extends Model
         return [$collection, $site];
     }
 
-    public function fromPath(string $originalPath)
+    public function fromPath(string $handle, string $originalPath)
     {
         return $this->fromPathAndContents($originalPath, File::get($originalPath));
     }
 
     public function fromPathAndContents(string $originalPath, string $contents)
     {
-        $path = Str::after($originalPath, static::getFlatfilePath().DIRECTORY_SEPARATOR);
+        $path = Str::after($originalPath, (new static)->getFlatfileRootDirectory().DIRECTORY_SEPARATOR);
 
         [$collectionHandle, $site] = $this->extractAttributesFromPath($path);
 
@@ -163,7 +195,7 @@ class Entry extends Model
 
         // $data['slug'] = $slug->afterLast(DIRECTORY_SEPARATOR)->value();
 
-        $columns = $this->getSchemaColumns();
+        $columns = Blink::once('entry-columns', fn () => $this->getSchemaColumns());
 
         $yamlData = YAML::parse($contents);
 
@@ -236,7 +268,7 @@ class Entry extends Model
             }
         }
 
-        $model->path = Str::of($entry->buildPath())->after(static::getFlatfilePath().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
+        $model->path = Str::of($entry->buildPath())->after($model->getFlatfileRootDirectory().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
         $model->uri = $entry->uri();
         $model->origin = $entry->origin()?->id();
 

@@ -2,6 +2,7 @@
 
 namespace Thoughtco\StatamicStacheSqlite;
 
+use Statamic\Contracts\Assets\AssetRepository as AssetRepositoryContract;
 use Statamic\Contracts\Entries\EntryRepository as EntryRepositoryContract;
 use Statamic\Providers\AddonServiceProvider;
 use Statamic\Statamic;
@@ -12,7 +13,8 @@ class ServiceProvider extends AddonServiceProvider
 {
     public function bootAddon()
     {
-        $this->registerEntryRepository();
+        $this->registerAssetRepository()
+            ->registerEntryRepository();
     }
 
     public function register()
@@ -43,6 +45,25 @@ class ServiceProvider extends AddonServiceProvider
             function ($app) {
                 return new Entries\EntryQueryBuilder(
                     builder: Models\Entry::query()
+                );
+            }
+        );
+
+        return $this;
+    }
+
+    private function registerAssetRepository()
+    {
+        Statamic::repository(
+            abstract: AssetRepositoryContract::class,
+            concrete: Assets\AssetRepository::class
+        );
+
+        $this->app->bind(
+            Assets\AssetQueryBuilder::class,
+            function ($app) {
+                return new Assets\AssetQueryBuilder(
+                    builder: Models\Asset::query()
                 );
             }
         );

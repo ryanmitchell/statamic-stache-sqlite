@@ -2,12 +2,8 @@
 
 namespace Thoughtco\StatamicStacheSqlite\Drivers;
 
-use FilesystemIterator;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Collection;
-use RecursiveDirectoryIterator;
-use RecursiveIteratorIterator;
 use Statamic\Entries\GetSuffixFromPath;
 use Statamic\Entries\RemoveSuffixFromPath;
 use Statamic\Facades\File;
@@ -18,7 +14,7 @@ use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
 
 class StacheDriver implements Driver
 {
-    public function shouldRestoreCache(Model $model, string $directory): bool
+    public function shouldRestoreCache(Model $model, array $resolvers): bool
     {
         // if there is no watcher, dont rebuild the cache
         if (! Stache::isWatcherEnabled()) {
@@ -27,62 +23,40 @@ class StacheDriver implements Driver
 
         $databaseLastUpdated = filemtime(Flatfile::getDatabasePath());
 
-        foreach (new FilesystemIterator($directory) as $file) {
-            if ($file->getMTime() > $databaseLastUpdated) {
-                return true;
+        foreach ($resolvers as $fileResolver) {
+            foreach ($fileResolver() as $file) {
+                if ($file->getMTime() > $databaseLastUpdated) {
+                    return true;
+                }
             }
         }
 
         return false;
     }
 
-    public function save(Model $model, string $directory): bool
+    public function save(Model $model): bool
     {
-        $path = $this->filepath($directory, $model);
-
-        if ($model->file_path_read_from && ($path != $model->file_path_read_from)) {
-            unlink($model->file_path_read_from);
-        }
-
-        $fs = new Filesystem;
-        $fs->ensureDirectoryExists(dirname($path));
-
-        file_put_contents($path, $model->fileContents());
-
-        return true;
+        return $model->writeFlatfile($this);
     }
 
-    public function delete(Model $model, string $directory): bool
+    public function delete(Model $model): bool
     {
-        unlink($this->filepath($directory, $model));
-
-        return true;
+        return $model->deleteFlatfile($this);
     }
 
-    public function all(Model $model, string $directory): Collection
+    public function all(Model $model, string $handle, \Closure $fileResolver): Collection
     {
-        ray()->measure('reading_flatfiles');
+        ray()->measure('reading_flatfiles: '.get_class($model));
 
-        $withoutOrigin = Collection::make();
-        $withOrigin = Collection::make();
-        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($directory, FilesystemIterator::SKIP_DOTS));
+        // @TODO: change this to be a lazy collection from a memory and speed perspective
+        // if so, chunk in StoreAsFlatFile will also need changed
+        $collection = Collection::make();
 
-        /** @var \SplFileInfo $file */
-        foreach ($iterator as $file) {
-            if ($file->isDir()) {
-                $files = $this->all($model, $file->getRealPath());
-
-                $collection->merge($files);
-
-                continue;
-            }
-
-            if ($file->getExtension() !== 'md') {
-                continue;
-            }
+        /** @var string $path */
+        foreach ($fileResolver() as $path) {
 
             // let the model determine how to parse the data
-            $data = $model->newInstance()->fromPath($file->getPathname());
+            $data = $model->newInstance()->fromPath($handle, $path);
 
             if (! $data) {
                 continue;
@@ -91,23 +65,20 @@ class StacheDriver implements Driver
             $row = array_merge(
                 $data,
                 [
-                    'path' => $file->getRealPath(),
-                    'file_path_read_from' => $file->getRealPath(),
+                    'path' => $path,
+                    'file_path_read_from' => $path,
                 ]
             );
 
-            if ($row['origin'] ?? false) {
-                $withOrigin->push($row);
-            } else {
-                $withoutOrigin->push($row);
-            }
+            $collection->push($row);
         }
 
-        ray()->measure('reading_flatfiles');
+        ray()->measure('reading_flatfiles: '.get_class($model));
 
-        return $withoutOrigin->concat($withOrigin);
+        return $collection;
     }
 
+    // @TODO: should this be moved to StoreAsFlatfile
     public function filepath(string $directory, Model $model): string
     {
         $basePath = $directory.DIRECTORY_SEPARATOR.$model->{$model->getPathKeyName()}.'.'.$model->fileExtension();
