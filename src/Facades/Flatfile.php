@@ -11,7 +11,6 @@ use Thoughtco\StatamicStacheSqlite\Managers\FlatfileManager;
  * @method static array getDrivers()
  * @method static string getDefaultDriver()
  * @method static string getDatabasePath()
- * @method static string getContentPath()
  * @method static \Thoughtco\StatamicStacheSqlite\Managers\FlatfileManager test()
  * @method static bool isTesting()
  *
