@@ -228,7 +228,7 @@ class Asset extends Model
 
     public function writeFlatfile(?Driver $driver = null)
     {
-        Storage::disk(AssetContainer::findByHandle($this->container)->disk)->put($this->metaPath($this->path), $this->fileContents());
+        Storage::disk(AssetContainer::findByHandle($this->container)->disk)->put($this->metaPath($this->path), $this->fileContents()); // yup, all this to allow us to Storage::fake(), yuck
 
         $this->meta_file_exists = true;
         $this->saveQuietly();
@@ -238,7 +238,7 @@ class Asset extends Model
 
     public function deleteFlatfile(Driver $driver)
     {
-        Storage::disk(AssetContainer::findByHandle($this->container)->disk)->delete($this->metaPath($this->path));
+        Storage::disk(AssetContainer::findByHandle($this->container)->disk)->delete($this->metaPath($this->path)); // yup, all this to allow us to Storage::fake(), yuck
 
         return true;
     }

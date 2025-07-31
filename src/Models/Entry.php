@@ -178,22 +178,7 @@ class Entry extends Model
             $data['date'] = (new GetDateFromPath)($path);
         }
 
-        // need to date, site etc
-        // $slug = Str::of($path)->after($collectionHandle.DIRECTORY_SEPARATOR)->before('.md');
-
         $data['slug'] = (new GetSlugFromPath)($path);
-
-        //        if (Site::multiEnabled()) {
-        //            $data['site'] = $slug->before(DIRECTORY_SEPARATOR)->value();
-        //            $slug = $slug->after(DIRECTORY_SEPARATOR);
-        //        }
-
-        //        if ($slug->contains('.')) {
-        //            $data['date'] = $slug->before('.')->value();
-        //            $slug = $slug->after('.');
-        //        }
-
-        // $data['slug'] = $slug->afterLast(DIRECTORY_SEPARATOR)->value();
 
         $columns = Blink::once('entry-columns', fn () => $this->getSchemaColumns());
 
@@ -233,8 +218,6 @@ class Entry extends Model
                 'uri' => $uri,
             ];
         };
-
-        // $data['uri'] = $entry->uri();
 
         return $data;
     }
