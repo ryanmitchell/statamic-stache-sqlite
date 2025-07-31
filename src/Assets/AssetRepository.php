@@ -54,7 +54,7 @@ class AssetRepository extends \Statamic\Assets\AssetRepository
 
         $asset->model($model);
 
-        Blink::once("asset-{$asset->id()}", fn () => $asset);
+        Blink::put("asset-{$asset->id()}", $asset);
     }
 
     public function delete($asset)
