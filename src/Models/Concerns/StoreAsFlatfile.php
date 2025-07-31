@@ -146,11 +146,17 @@ trait StoreAsFlatfile
         $driver = Flatfile::driver(static::getFlatfileDriver());
 
         foreach (static::getFlatfileResolvers() as $handle => $directory) {
+            $afterInsert = collect();
             $driver->all($this, $handle, $directory)
                 ->chunk(500)
-                ->each(function (LazyCollection $chunk) {
-                    $insertWithoutUpdate = $chunk->map(function ($row) {
+                ->each(function (LazyCollection $chunk) use ($afterInsert) {
+                    $insertWithoutUpdate = $chunk->map(function ($row) use ($afterInsert) {
                         $row = $this->prepareDataForModel($row);
+
+                        if (isset($row['updateAfterInsert'])) {
+                            $afterInsert->push(['id' => $row['id'], 'updateAfterInsert' => $row['updateAfterInsert']]);
+                        }
+
                         unset($row['updateAfterInsert']);
 
                         return $row;
@@ -161,23 +167,15 @@ trait StoreAsFlatfile
                     } catch (\Throwable $e) {
                         dd($e);
                     }
-                })
-                // @TODO: if we can avoid the need for this it reduces the build time on the test site from (2s to 200ms)
-                // it would also allow us to switch to using lazy collections
-                ->each(function (LazyCollection $chunk) {
-                    // some data needs to be added after the initial insert
-                    $chunk->each(function ($row) {
-                        if (! isset($row['updateAfterInsert'])) {
-                            return;
-                        }
-
-                        if (! $values = $row['updateAfterInsert']()) {
-                            return;
-                        }
-
-                        static::newQuery()->where('id', $row['id'])->update($values);
-                    });
                 });
+
+            foreach ($afterInsert as $row) {
+                if (! $values = $row['updateAfterInsert']()) {
+                    continue;
+                }
+
+                static::newQuery()->where('id', $row['id'])->update($values);
+            }
         }
     }
 
