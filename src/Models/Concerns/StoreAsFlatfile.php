@@ -146,9 +146,7 @@ trait StoreAsFlatfile
         $driver = Flatfile::driver(static::getFlatfileDriver());
 
         foreach (static::getFlatfileResolvers() as $handle => $directory) {
-            $files = $driver->all($this, $handle, $directory);
-
-            $files
+            $driver->all($this, $handle, $directory)
                 ->chunk(500)
                 ->each(function (LazyCollection $chunk) {
                     $insertWithoutUpdate = $chunk->map(function ($row) {
