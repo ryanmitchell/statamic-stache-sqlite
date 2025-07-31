@@ -2,7 +2,6 @@
 
 namespace Entries;
 
-use Illuminate\Filesystem\Filesystem;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use PHPUnit\Framework\Attributes\Test;
@@ -41,7 +40,7 @@ class EntriesStoreTest extends TestCase
     {
         $dir = $this->directory;
 
-        $files = (new StacheDriver)->all(EntryModel::make(), 'handle', function() use ($dir) {
+        $files = (new StacheDriver)->all(EntryModel::make(), 'handle', function () use ($dir) {
             $iterator = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS));
 
             $files = [];

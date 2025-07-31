@@ -13,7 +13,7 @@ class Asset extends FileAsset
     public function model($model = null)
     {
         if (! $model) {
-            return $this->model;
+            return $this->model ?? ($this->model = AssetModel::find($this->id()));
         }
 
         $this->model = $model;

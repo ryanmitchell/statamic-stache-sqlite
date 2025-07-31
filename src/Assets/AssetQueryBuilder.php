@@ -25,6 +25,8 @@ class AssetQueryBuilder extends EloquentQueryBuilder implements QueryBuilder
         if (! in_array($column, $columns)) {
             if (! Str::startsWith($column, 'data->')) {
                 $column = 'data->'.$column;
+
+                $this->generateMetaWhereItIsMissing();
             }
         }
 
@@ -42,12 +44,30 @@ class AssetQueryBuilder extends EloquentQueryBuilder implements QueryBuilder
         return false;
     }
 
+    private function generateMetaWhereItIsMissing()
+    {
+        \Statamic\Facades\Asset::query()
+            ->where('meta_file_exists', false)
+            ->lazy()
+            ->each(function ($asset) {
+                $meta = $asset->generateMeta();
+                $asset->model()->addMetaToCache($asset, $meta);
+
+                $asset->save();
+            });
+    }
+
     protected function transform($items, $columns = [])
     {
         return AssetCollection::make($items)->map(function ($model) use ($columns) {
-            return Blink::once("asset-{$model->id}", function () use ($model) {
+            $asset = Blink::once("asset-{$model->id}", function () use ($model) {
                 return $model->makeContract();
-            })->selectedQueryColumns($this->selectedQueryColumns ?? $columns);
+            });
+
+            // set cache again here, to ensure we have the latest data
+            $model->addMetaToCache($asset, $model->toArray());
+
+            return $asset->selectedQueryColumns($this->selectedQueryColumns ?? $columns);
         });
     }
 }

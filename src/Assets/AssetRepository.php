@@ -26,8 +26,7 @@ class AssetRepository extends \Statamic\Assets\AssetRepository
         ]);
 
         $model
-            ->fromContract($asset)
-            ->touch();
+            ->fromContract($asset);
 
         $cache = $asset->container()->contents();
 
@@ -39,11 +38,19 @@ class AssetRepository extends \Statamic\Assets\AssetRepository
 
         $cache->save();
 
-        if ($model->isDirty()) {
-            $model->save();
-        } else {
-            $model->writeFlatFile();
+        // @TODO: not sure why we need this, but it seems to be necessary for the right data to be in tests
+        // some tests dont want this data, and some do, so this workaround solves it
+        foreach (['duration', 'height', 'last_modified', 'mime_type', 'size', 'width'] as $key) {
+            if (! $model->key) {
+                $model->$key = $asset->meta($key) ?? null;
+            }
         }
+
+        $model->data = $asset->data()->all();
+        // END @TODO
+
+        $model->saveQuietly();
+        $model->writeFlatFile();
 
         $asset->model($model);
 

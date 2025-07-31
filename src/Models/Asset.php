@@ -55,9 +55,7 @@ class Asset extends Model
             ->path($this->path)
             ->container($this->container);
 
-        // add meta to the cache store so it gets resolved by pending meta
-        $meta = Arr::except($this->toArray(), ['id', 'file_path_read_from', 'container', 'path', 'folder', 'basename', 'filename', 'extension', 'created_at', 'updated_at']);
-        $contract->cacheStore()->forever($contract->metaCacheKey(), $meta);
+        $this->addMetaToCache($contract, $this->toArray());
 
         $contract->model($this);
 
@@ -68,18 +66,20 @@ class Asset extends Model
     {
         $disk = Storage::disk(AssetContainer::findByHandle($handle)->disk); // yup, all this to allow us to Storage::fake(), yuck
 
+        $metaFileExists = true;
         if (! $meta = $disk->get($this->metaPath($originalPath))) {
             if ($disk->get($originalPath) === null) {
                 return null;
             }
 
+            $metaFileExists = false;
             $meta = '';
         }
 
-        return $this->fromPathAndContents($handle.'::'.$originalPath, $meta ?? '');
+        return $this->fromPathAndContents($handle.'::'.$originalPath, $meta ?? '', $metaFileExists);
     }
 
-    public function fromPathAndContents(string $originalPath, string $contents)
+    public function fromPathAndContents(string $originalPath, string $contents, bool $metaFileExists = false)
     {
         $columns = Blink::once('asset-columns', fn () => $this->getSchemaColumns());
 
@@ -98,11 +98,12 @@ class Asset extends Model
             ])->all(),
             collect($yamlData)->only($columns)->all(),
             $pathinfo,
-            ['data' => collect($yamlData)->except($columns)->all()]
+            ['data' => $yamlData['data'] ?? []]
         );
 
         $data['container'] = $container;
         $data['path'] = $originalPath;
+        $data['meta_file_exists'] = $metaFileExists;
 
         if (! $data['id']) {
             $data['id'] = $data['container'].'::'.$data['path'];
@@ -130,13 +131,14 @@ class Asset extends Model
             $model->$key = $asset->{$key}();
         }
 
-        if ($meta = ($meta ?? $asset->meta())) {
+        $model->data = $asset->data()->all();
+
+        if ($meta = (! empty($meta) ? $meta : $asset->meta())) {
             foreach (['duration', 'height', 'last_modified', 'mime_type', 'size', 'width'] as $key) {
                 $model->$key = $meta[$key] ?? null;
             }
         }
 
-        $model->data = $asset->data()->all();
         $model->path = $asset->path();
 
         return $model;
@@ -162,19 +164,26 @@ class Asset extends Model
             ->path($data['path'])
             ->container($data['container']);
 
-        // add meta to the cache store so it gets resolved by pending meta
-        $meta = Arr::except($data, ['id', 'file_path_read_from', 'container', 'path', 'folder', 'basename', 'filename', 'extension', 'created_at', 'updated_at']);
-        $asset->cacheStore()->forever($asset->metaCacheKey, $meta);
+        $this->addMetaToCache($asset, $data);
 
         $asset->hydrate();
 
         return $asset;
     }
 
+    public function addMetaToCache(\Statamic\Contracts\Assets\Asset $asset, array $data): void
+    {
+        // add meta to the cache store so it gets resolved by pending meta
+        $meta = Arr::except($data, ['id', 'file_path_read_from', 'meta_file_exists', 'container', 'path', 'folder', 'basename', 'filename', 'extension', 'created_at', 'updated_at']);
+        $asset->cacheStore()->forever($asset->metaCacheKey(), $meta);
+    }
+
     public static function schema(Blueprint $table)
     {
         $table->string('id')->unique()->index();
         $table->string('file_path_read_from')->nullable();
+        $table->boolean('meta_file_exists')->default(false);
+
         $table->string('path');
         $table->string('container')->index();
         $table->string('folder')->index();
@@ -182,8 +191,6 @@ class Asset extends Model
         $table->string('filename')->index();
         $table->string('extension')->index();
 
-        // all of this is stored in the meta cache, so its debatable that we need to store it...
-        // but I've left it here so sorting can be done in CP
         $table->integer('duration')->nullable()->default(null);
         $table->integer('height')->nullable()->default(null);
         $table->integer('last_modified')->nullable()->default(null);
@@ -191,19 +198,19 @@ class Asset extends Model
         $table->integer('size')->nullable()->default(null);
         $table->integer('width')->nullable()->default(null);
 
-        $table->json('data')->nullable()->default('[]');
+        $table->json('data')->nullable()->default(null);
     }
 
     public function fileData()
     {
         return [
             'data' => $this->data?->toArray() ?? [],
-            'duration' => $this->duration,
-            'height' => $this->height,
-            'last_modified' => $this->last_modified,
-            'mime_type' => $this->mime_type,
             'size' => $this->size,
+            'last_modified' => $this->last_modified,
             'width' => $this->width,
+            'height' => $this->height,
+            'mime_type' => $this->mime_type,
+            'duration' => $this->duration,
         ];
     }
 
@@ -222,6 +229,9 @@ class Asset extends Model
     public function writeFlatfile(?Driver $driver = null)
     {
         Storage::disk(AssetContainer::findByHandle($this->container)->disk)->put($this->metaPath($this->path), $this->fileContents());
+
+        $this->meta_file_exists = true;
+        $this->saveQuietly();
 
         return true;
     }
