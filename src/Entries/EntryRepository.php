@@ -27,7 +27,7 @@ class EntryRepository extends \Statamic\Stache\Repositories\EntryRepository
 
         $entry->model($model);
 
-        Blink::once("entry-{$entry->id()}", fn () => $entry);
+        Blink::put("entry-{$entry->id()}", $entry);
     }
 
     public function delete($entry)

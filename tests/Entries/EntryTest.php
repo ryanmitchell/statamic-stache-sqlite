@@ -2589,18 +2589,18 @@ class EntryTest extends TestCase
         $this->assertEquals('root updated', $one->foo);
         $this->assertEquals('root updated', $two->foo);
         $this->assertEquals('root updated', $three->foo);
-        //        $this->assertCount(1, $fakeBlink->calls['origin-Entry-1']); @TODO: this test only passes if we change getOriginBlinkKey() to return 'entry-{id}', why is it a seperate blink item?
-        //        $this->assertCount(1, $fakeBlink->calls['origin-Entry-2']);
-        //        $this->assertCount(1, $fakeBlink->calls['origin-Entry-3']);
+        $this->assertCount(1, $fakeBlink->calls['origin-Entry-1']);
+        $this->assertCount(1, $fakeBlink->calls['origin-Entry-2']);
+        $this->assertCount(1, $fakeBlink->calls['origin-Entry-3']);
 
         $two->data(['foo' => 'two updated'])->save();
 
         $this->assertEquals('root updated', $one->foo);
         $this->assertEquals('two updated', $two->foo);
         $this->assertEquals('two updated', $three->foo);
-        //        $this->assertCount(1, $fakeBlink->calls['origin-Entry-1']);
-        //        $this->assertCount(2, $fakeBlink->calls['origin-Entry-2']);
-        //        $this->assertCount(2, $fakeBlink->calls['origin-Entry-3']);
+        $this->assertCount(1, $fakeBlink->calls['origin-Entry-1']);
+        $this->assertCount(2, $fakeBlink->calls['origin-Entry-2']);
+        $this->assertCount(2, $fakeBlink->calls['origin-Entry-3']);
     }
 
     #[Test]
