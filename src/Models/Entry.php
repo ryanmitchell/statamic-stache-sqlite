@@ -265,10 +265,7 @@ class Entry extends Model
 
         if (! $model->id) {
             $model->id = Str::uuid()->toString();
-
-            if (! $entry->id()) {
-                $entry->id($model->id);
-            }
+            $entry->id($model->id);
         }
 
         $model->path = Str::of($entry->buildPath())->after($model->getFlatfileRootDirectory().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
