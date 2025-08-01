@@ -214,11 +214,11 @@ class Entry extends Model
         // Blink::put("origin-Entry-{$id}", $entry); // @TODO: why doensnt this just use entry-{id} ?
 
         // we dont need run this if we dont have an origin, or we dont have a uri
-        if ($collection->route($site) || $entry->hasOrigin()) {
-            $data['updateAfterInsert'] = function ($insertedIds) use ($entry) {
+        if ($collection->route($site) || $data['origin']) {
+            $data['updateAfterInsert'] = function ($insertedIds) use ($entry, $data) {
                 // if we have an origin, make sure its already been updated
-                if ($origin = $entry->origin()) {
-                    if (! in_array($origin->id, $insertedIds)) {
+                if ($origin = ($data['origin'] ?? false)) {
+                    if (! in_array($origin, $insertedIds)) {
                         return false;
                     }
                 }
