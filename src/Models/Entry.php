@@ -215,11 +215,16 @@ class Entry extends Model
             //                return [];
             //            }
 
+            $values = $entry->hasOrigin() ? [
+                'data' => $entry->values()->all(),
+            ] : [];
+
             if (! $uri = $entry->uri()) {
-                return [];
+                return $values;
             }
 
             return [
+                ...$values,
                 'uri' => $uri,
             ];
         };
@@ -242,9 +247,11 @@ class Entry extends Model
         $model->collection = $entry->collectionHandle();
         $model->site = $entry->locale();
 
-        foreach (['id', 'data', 'date', 'published', 'slug'] as $key) {
+        foreach (['id', 'date', 'published', 'slug'] as $key) {
             $model->$key = $entry->{$key}();
         }
+
+        $model->data = $entry->values();
 
         if (! $model->id) {
             $model->id = Str::uuid()->toString();
