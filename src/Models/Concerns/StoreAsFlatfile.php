@@ -145,8 +145,8 @@ trait StoreAsFlatfile
 
         $driver = Flatfile::driver(static::getFlatfileDriver());
 
+        $afterInsert = collect();
         foreach (static::getFlatfileResolvers() as $handle => $directory) {
-            $afterInsert = collect();
             $driver->all($this, $handle, $directory)
                 ->chunk(500)
                 ->each(function (LazyCollection $chunk) use ($afterInsert) {
@@ -168,14 +168,14 @@ trait StoreAsFlatfile
                         dd($e);
                     }
                 });
+        }
 
-            foreach ($afterInsert as $row) {
-                if (! $values = $row['updateAfterInsert']()) {
-                    continue;
-                }
-
-                static::newQuery()->where('id', $row['id'])->update($values);
+        foreach ($afterInsert as $row) {
+            if (! $values = $row['updateAfterInsert']()) {
+                continue;
             }
+
+            static::newQuery()->where('id', $row['id'])->update($values);
         }
     }
 
