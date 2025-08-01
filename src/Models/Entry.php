@@ -123,6 +123,10 @@ class Entry extends Model
                     }
                 }
 
+                if ($key == 'site') {
+                    $key = 'locale'; // we can get site, but we need to set locale()
+                }
+
                 $contract->$key($value);
             }
         }

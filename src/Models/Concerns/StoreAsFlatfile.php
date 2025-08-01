@@ -38,13 +38,15 @@ trait StoreAsFlatfile
         $driver = Flatfile::driver(static::getFlatfileDriver());
         $modelFile = (new ReflectionClass(static::class))->getFileName();
 
+        $model = (new static);
+
         if (
             Flatfile::isTesting() ||
             filemtime($modelFile) > filemtime(Flatfile::getDatabasePath()) ||
-            $driver->shouldRestoreCache((new static), static::getFlatfileResolvers()) ||
-            ! static::resolveConnection()->getSchemaBuilder()->hasTable((new static)->getTable())
+            $driver->shouldRestoreCache($model, static::getFlatfileResolvers()) ||
+            ! static::resolveConnection()->getSchemaBuilder()->hasTable($model->getTable())
         ) {
-            (new static)->migrate();
+            $model->migrate();
         }
 
         static::created(function (Model $model) {
