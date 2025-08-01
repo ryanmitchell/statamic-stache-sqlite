@@ -33,8 +33,6 @@ trait StoreAsFlatfile
             return;
         }
 
-        static::ensureFlatfileDirectoriesExist();
-
         $driver = Flatfile::driver(static::getFlatfileDriver());
         $modelFile = (new ReflectionClass(static::class))->getFileName();
 
@@ -172,7 +170,7 @@ trait StoreAsFlatfile
         }
 
         // @TODO: if we dont do the below we save nearly 50% of processing on my demo site... I would love to find ways to remove it!
-                
+
         // ensure we update in the sequence the repository needs
         while ($afterInsert->isNotEmpty()) {
             foreach ($afterInsert as $index => $row) {
@@ -239,21 +237,6 @@ trait StoreAsFlatfile
     protected static function getFlatfileDriver()
     {
         return property_exists(static::class, 'driver') ? static::$driver : null;
-    }
-
-    protected static function ensureFlatfileDirectoriesExist()
-    {
-        if (! static::enableFlatfile()) {
-            return;
-        }
-
-        $fs = new Filesystem;
-
-        $database = Flatfile::getDatabasePath();
-
-        if (! $fs->exists($database) && $database !== ':memory:') {
-            $fs->put($database, '');
-        }
     }
 
     public static function enableFlatfile(): bool

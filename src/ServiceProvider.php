@@ -2,6 +2,8 @@
 
 namespace Thoughtco\StatamicStacheSqlite;
 
+use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Facades\DB;
 use Statamic\Contracts\Assets\AssetRepository as AssetRepositoryContract;
 use Statamic\Contracts\Entries\EntryRepository as EntryRepositoryContract;
 use Statamic\Providers\AddonServiceProvider;
@@ -13,6 +15,26 @@ class ServiceProvider extends AddonServiceProvider
 {
     public function bootAddon()
     {
+        try {
+            $fs = new Filesystem;
+
+            $database = Flatfile::getDatabasePath();
+
+            if (! $fs->exists($database) && $database !== ':memory:') {
+                $fs->put($database, '');
+            }
+
+            // thank you: https://medium.com/swlh/laravel-optimizing-sqlite-to-dangerous-speeds-ff04111b1f22
+            $connection = DB::connection('statamic');
+
+            if (data_get($connection->select('PRAGMA journal_mode'), '0.journal_mode') != 'wal') {
+                $connection->statement(
+                    'PRAGMA journal_mode=WAL;PRAGMA synchronous = OFF;'
+                );
+            }
+        } catch (\Throwable $e) {
+        }
+
         $this->registerAssetRepository()
             ->registerEntryRepository();
     }
