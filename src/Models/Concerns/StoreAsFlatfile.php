@@ -148,15 +148,18 @@ trait StoreAsFlatfile
         $driver = Flatfile::driver(static::getFlatfileDriver());
 
         $afterInsert = collect();
+        $insertedIds = [];
         foreach (static::getFlatfileResolvers() as $handle => $directory) {
             $driver->all($this, $handle, $directory)
                 ->chunk(500)
-                ->each(function (LazyCollection $chunk) use ($afterInsert) {
-                    $insertWithoutUpdate = $chunk->map(function ($row) use ($afterInsert) {
+                ->each(function (LazyCollection $chunk) use ($afterInsert, &$insertedIds) {
+                    $insertWithoutUpdate = $chunk->map(function ($row) use ($afterInsert, &$insertedIds) {
                         $row = $this->prepareDataForModel($row);
 
                         if (isset($row['updateAfterInsert'])) {
                             $afterInsert->push(['id' => $row['id'], 'updateAfterInsert' => $row['updateAfterInsert']]);
+                        } else {
+                            $insertedIds[] = $row['id'];
                         }
 
                         unset($row['updateAfterInsert']);
@@ -168,12 +171,19 @@ trait StoreAsFlatfile
                 });
         }
 
-        foreach ($afterInsert as $row) {
-            if (! $values = $row['updateAfterInsert']()) {
-                continue;
-            }
+        // ensure we update in the sequence the repository needs
+        while ($afterInsert->isNotEmpty()) {
+            foreach ($afterInsert as $index => $row) {
+                $values = $row['updateAfterInsert']($insertedIds);
 
-            static::newQuery()->where('id', $row['id'])->update($values);
+                if ($values === false) { // the repository doesnt have what it needs yet
+                    continue;
+                }
+
+                static::newQuery()->where('id', $row['id'])->update($values);
+                $insertedIds[] = $row['id'];
+                $afterInsert->forget($index);
+            }
         }
     }
 

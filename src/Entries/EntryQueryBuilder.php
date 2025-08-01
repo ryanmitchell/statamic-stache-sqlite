@@ -29,8 +29,8 @@ class EntryQueryBuilder extends EloquentQueryBuilder implements QueryBuilder
         $columns = Blink::once('entry-columns', fn () => (new EntryModel)->resolveConnection()->getSchemaBuilder()->getColumnListing((new EntryModel)->getTable()));
 
         if (! in_array($column, $columns)) {
-            if (! Str::startsWith($column, 'data->')) {
-                $column = 'data->'.$column;
+            if (! Str::startsWith($column, 'values->')) {
+                $column = 'values->'.$column;
             }
         }
 
