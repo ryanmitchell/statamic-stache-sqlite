@@ -24,14 +24,28 @@ class ServiceProvider extends AddonServiceProvider
                 $fs->put($database, '');
             }
 
-            // thank you: https://medium.com/swlh/laravel-optimizing-sqlite-to-dangerous-speeds-ff04111b1f22
+            // thank you: https://github.com/nunomaduro/laravel-optimize-database/tree/main
             $connection = DB::connection('statamic');
 
             if (data_get($connection->select('PRAGMA journal_mode'), '0.journal_mode') != 'wal') {
-                $connection->statement(
-                    'PRAGMA journal_mode=WAL;PRAGMA synchronous = OFF;'
+                $connection->unprepared(<<<'SQL'
+                PRAGMA auto_vacuum = incremental;
+                PRAGMA journal_mode = WAL;
+                PRAGMA page_size = 32768;
+                SQL
                 );
             }
+
+            $connection->unprepared(<<<'SQL'
+                PRAGMA busy_timeout = 5000;
+                PRAGMA cache_size = -20000;
+                PRAGMA foreign_keys = ON;
+                PRAGMA incremental_vacuum;
+                PRAGMA mmap_size = 2147483648;
+                PRAGMA temp_store = MEMORY;
+                PRAGMA synchronous = NORMAL;
+                SQL
+            );
         } catch (\Throwable $e) {
         }
 
