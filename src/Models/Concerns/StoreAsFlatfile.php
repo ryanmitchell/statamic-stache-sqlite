@@ -162,11 +162,7 @@ trait StoreAsFlatfile
                         return $row;
                     });
 
-                    try {
-                        static::insert($insertWithoutUpdate->toArray());
-                    } catch (\Throwable $e) {
-                        dd($e);
-                    }
+                    static::insert($insertWithoutUpdate->toArray());
                 });
         }
 
