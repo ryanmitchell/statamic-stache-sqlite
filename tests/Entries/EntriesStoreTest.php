@@ -124,6 +124,7 @@ class EntriesStoreTest extends TestCase
     public function if_slugs_are_not_required_and_the_filename_is_the_same_as_the_id_then_slug_is_null()
     {
         EntryModel::query()->delete(); // remove fixture data
+        Facades\Blink::forget('collection-blog'); // remove the collection cache
 
         Facades\Collection::shouldReceive('findByHandle')->with('blog')->andReturn(
             (new \Statamic\Entries\Collection)->handle('blog')->requiresSlugs(false)
