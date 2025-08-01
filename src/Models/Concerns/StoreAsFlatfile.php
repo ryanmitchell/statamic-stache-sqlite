@@ -171,6 +171,8 @@ trait StoreAsFlatfile
                 });
         }
 
+        // @TODO: if we dont do the below we save nearly 50% of processing on my demo site... I would love to find ways to remove it!
+                
         // ensure we update in the sequence the repository needs
         while ($afterInsert->isNotEmpty()) {
             foreach ($afterInsert as $index => $row) {
