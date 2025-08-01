@@ -60,7 +60,7 @@ class StacheDriver implements Driver
 
                 yield [
                     ...$data,
-                    [
+                    ...[
                         'path' => $path,
                         'file_path_read_from' => $path,
                     ],
