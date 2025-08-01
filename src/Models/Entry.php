@@ -36,6 +36,7 @@ class Entry extends Model
         return [
             'data' => AsArrayObject::class,
             'date' => 'datetime',
+            'values' => AsArrayObject::class,
         ];
     }
 
@@ -108,7 +109,7 @@ class Entry extends Model
         Blink::put("entry-{$this->id}", $contract);
 
         foreach ($attributes as $key => $value) {
-            if (in_array($key, ['created_at', 'updated_at', 'file_path_read_from', 'path', 'uri'])) {
+            if (in_array($key, ['created_at', 'updated_at', 'file_path_read_from', 'path', 'uri', 'values'])) {
                 continue;
             }
 
@@ -189,13 +190,15 @@ class Entry extends Model
 
         $yamlData = collect(YAML::parse($contents));
 
+        $dataValues = $yamlData->except($columns)->all();
+
         $data = [
             ...collect($columns)->mapWithKeys(fn ($value) => [
                 $value => Arr::get(collect(static::$blueprintColumns)->firstWhere('name', $value)?->toArray() ?? [], 'default', ''),
             ])->all(),
             ...$yamlData->only($columns)->all(),
             ...$data,
-            ...['data' => $yamlData->except($columns)->all()],
+            ...['data' => $dataValues, 'values' => $dataValues],
         ];
 
         $data['path'] = $path;
@@ -210,24 +213,30 @@ class Entry extends Model
         Blink::put("entry-{$id}", $entry);
         // Blink::put("origin-Entry-{$id}", $entry); // @TODO: why doensnt this just use entry-{id} ?
 
-        $data['updateAfterInsert'] = function () use ($entry) {
-            //            if (! $entry = \Statamic\Facades\Entry::find($id)) {
-            //                return [];
-            //            }
+        // we dont need run this if we dont have an origin, or we dont have a uri
+        if ($collection->route($site) || $data['origin']) {
+            $data['updateAfterInsert'] = function ($insertedIds) use ($entry, $data) {
+                // if we have an origin, make sure its already been updated
+                if ($origin = ($data['origin'] ?? false)) {
+                    if (! in_array($origin, $insertedIds)) {
+                        return false;
+                    }
+                }
 
-            $values = $entry->hasOrigin() ? [
-                'data' => $entry->values()->all(),
-            ] : [];
+                $values = $origin ? [
+                    'values' => $entry->values()->all(),
+                ] : [];
 
-            if (! $uri = $entry->uri()) {
-                return $values;
-            }
+                if (! $uri = $entry->uri()) {
+                    return $values;
+                }
 
-            return [
-                ...$values,
-                'uri' => $uri,
-            ];
-        };
+                return [
+                    ...$values,
+                    'uri' => $uri,
+                ];
+            };
+        }
 
         return [$data, $entry];
     }
@@ -251,14 +260,12 @@ class Entry extends Model
             $model->$key = $entry->{$key}();
         }
 
-        $model->data = $entry->values();
+        $model->data = $entry->data();
+        $model->values = $entry->values();
 
         if (! $model->id) {
             $model->id = Str::uuid()->toString();
-
-            if (! $entry->id()) {
-                $entry->id($model->id);
-            }
+            $entry->id($model->id);
         }
 
         $model->path = Str::of($entry->buildPath())->after($model->getFlatfileRootDirectory().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
@@ -330,6 +337,7 @@ class Entry extends Model
         $table->string('blueprint')->nullable()->default(null);
         $table->string('collection')->index();
         $table->json('data')->nullable()->default(null);
+        $table->json('values')->nullable()->default(null);
         $table->datetime('date')->nullable()->default(null);
         $table->boolean('published')->default(true)->index();
         $table->string('site')->index();
