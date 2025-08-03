@@ -56,7 +56,10 @@ trait StoreAsFlatfile
             // and default values from the SQLite cache.
             // $model->refresh();
 
-            Flatfile::driver(static::getFlatfileDriver())->save($model);
+            if (!Flatfile::driver(static::getFlatfileDriver())->save($model)) {
+                return false;
+            }
+
             event(new FlatfileCreated($model));
         });
 
@@ -65,7 +68,10 @@ trait StoreAsFlatfile
                 return;
             }
 
-            Flatfile::driver(static::getFlatfileDriver())->save($model);
+            if (!Flatfile::driver(static::getFlatfileDriver())->save($model)) {
+                return false;
+            }
+
             event(new FlatfileUpdated($model));
         });
 
@@ -74,7 +80,10 @@ trait StoreAsFlatfile
                 return;
             }
 
-            Flatfile::driver(static::getFlatfileDriver())->delete($model);
+            if (!Flatfile::driver(static::getFlatfileDriver())->delete($model)) {
+                return false;
+            }
+
             event(new FlatfileDeleted($model));
         });
     }
@@ -302,26 +311,24 @@ trait StoreAsFlatfile
         return 'yaml';
     }
 
-    public function deleteFlatfile(Driver $driver)
+    public function deleteFlatfile(Driver $driver): bool
     {
-        unlink($driver->filepath($this->getFlatfileRootDirectory(), $this));
-
-        return true;
+        return unlink($driver->filepath($this->getFlatfileRootDirectory(), $this));
     }
 
-    public function writeFlatfile(Driver $driver)
+    public function writeFlatfile(Driver $driver): bool
     {
         $path = $driver->filepath($this->getFlatfileRootDirectory(), $this);
 
         if ($this->file_path_read_from && ($path != $this->file_path_read_from)) {
-            unlink($this->file_path_read_from);
+            if (!unlink($this->file_path_read_from)) {
+                return false;
+            }
         }
 
         $fs = new Filesystem;
         $fs->ensureDirectoryExists(dirname($path));
 
-        if (file_put_contents($path, $this->fileContents()) === false) {
-            throw new \RuntimeException("Failed to write to {$path}");
-        }
+        return file_put_contents($path, $this->fileContents()) !== false;
     }
 }
