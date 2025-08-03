@@ -47,7 +47,7 @@ trait StoreAsFlatfile
             $model->migrate();
         }
 
-        static::created(function (Model $model) {
+        static::creating(function (Model $model) {
             if ($model->callTraitMethod('shouldCreate', $model) === false) {
                 return;
             }
@@ -56,35 +56,26 @@ trait StoreAsFlatfile
             // and default values from the SQLite cache.
             // $model->refresh();
 
-            $status = Flatfile::driver(static::getFlatfileDriver())->save($model);
-
+            Flatfile::driver(static::getFlatfileDriver())->save($model);
             event(new FlatfileCreated($model));
-
-            return $status;
         });
 
-        static::updated(function (Model $model) {
+        static::updating(function (Model $model) {
             if ($model->callTraitMethod('shouldUpdate', $model) === false) {
                 return;
             }
 
-            $status = Flatfile::driver(static::getFlatfileDriver())->save($model);
-
+            Flatfile::driver(static::getFlatfileDriver())->save($model);
             event(new FlatfileUpdated($model));
-
-            return $status;
         });
 
-        static::deleted(function (Model $model) {
+        static::deleting(function (Model $model) {
             if ($model->callTraitMethod('shouldDelete', $model) === false) {
                 return;
             }
 
-            $status = Flatfile::driver(static::getFlatfileDriver())->delete($model);
-
+            Flatfile::driver(static::getFlatfileDriver())->delete($model);
             event(new FlatfileDeleted($model));
-
-            return $status;
         });
     }
 
@@ -329,8 +320,8 @@ trait StoreAsFlatfile
         $fs = new Filesystem;
         $fs->ensureDirectoryExists(dirname($path));
 
-        file_put_contents($path, $this->fileContents());
-
-        return true;
+        if (file_put_contents($path, $this->fileContents()) === false) {
+            throw new \RuntimeException("Failed to write to {$path}");
+        }
     }
 }
