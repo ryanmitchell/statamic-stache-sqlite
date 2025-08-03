@@ -5,7 +5,6 @@ namespace Thoughtco\StatamicStacheSqlite\Models\Concerns;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Str;
 use ReflectionClass;
@@ -39,15 +38,9 @@ trait StoreAsFlatfile
 
         $model = (new static);
 
-        $dbPath = Flatfile::getDatabasePath();
-        if (! file_exists($dbPath)) {
-            File::ensureDirectoryExists(dirname($dbPath));
-            touch($dbPath);
-        }
-
         if (
             Flatfile::isTesting() ||
-            filemtime($modelFile) > filemtime($dbPath) ||
+            filemtime($modelFile) > filemtime(Flatfile::getDatabasePath()) ||
             $driver->shouldRestoreCache($model, static::getFlatfileResolvers()) ||
             ! static::resolveConnection()->getSchemaBuilder()->hasTable($model->getTable())
         ) {
