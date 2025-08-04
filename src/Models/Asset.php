@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Casts\AsArrayObject;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Statamic\Contracts\Assets\Asset as AssetContract;
 use Statamic\Facades\AssetContainer;
@@ -111,6 +112,15 @@ class Asset extends Model
 
         if (! $data['id']) {
             $data['id'] = $data['container'].'::'.$data['path'];
+        }
+
+        // Fix empty string values for created_at and updated_at
+        if (empty($data['created_at'])) {
+            $data['created_at'] = null;
+        }
+
+        if (empty($data['updated_at'])) {
+            $data['updated_at'] = null;
         }
 
         $asset = $this->makeInstanceFromData($data);

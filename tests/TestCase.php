@@ -6,6 +6,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\Assert as IlluminateAssert;
 use Statamic\Facades\Site;
 use Statamic\Testing\AddonTestCase;
+use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
 use Thoughtco\StatamicStacheSqlite\ServiceProvider;
 
 abstract class TestCase extends AddonTestCase
@@ -38,6 +39,8 @@ abstract class TestCase extends AddonTestCase
             'driver' => 'file',
             'path' => storage_path('framework/cache/outpost-data'),
         ]);
+
+        $app['config']->set('database.connections.' . Flatfile::getDatabaseName() . '.database', ':memory:');
     }
 
     protected function assertEveryItem($items, $callback)
