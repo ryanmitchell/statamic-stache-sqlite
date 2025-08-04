@@ -56,7 +56,7 @@ trait StoreAsFlatfile
             // and default values from the SQLite cache.
             // $model->refresh();
 
-            if (!Flatfile::driver(static::getFlatfileDriver())->save($model)) {
+            if (! Flatfile::driver(static::getFlatfileDriver())->save($model)) {
                 return false;
             }
 
@@ -68,7 +68,7 @@ trait StoreAsFlatfile
                 return;
             }
 
-            if (!Flatfile::driver(static::getFlatfileDriver())->save($model)) {
+            if (! Flatfile::driver(static::getFlatfileDriver())->save($model)) {
                 return false;
             }
 
@@ -80,7 +80,7 @@ trait StoreAsFlatfile
                 return;
             }
 
-            if (!Flatfile::driver(static::getFlatfileDriver())->delete($model)) {
+            if (! Flatfile::driver(static::getFlatfileDriver())->delete($model)) {
                 return false;
             }
 
@@ -321,7 +321,7 @@ trait StoreAsFlatfile
         $path = $driver->filepath($this->getFlatfileRootDirectory(), $this);
 
         if ($this->file_path_read_from && ($path != $this->file_path_read_from)) {
-            if (!unlink($this->file_path_read_from)) {
+            if (! unlink($this->file_path_read_from)) {
                 return false;
             }
         }
