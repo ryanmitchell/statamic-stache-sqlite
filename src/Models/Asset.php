@@ -3,7 +3,6 @@
 namespace Thoughtco\StatamicStacheSqlite\Models;
 
 use Illuminate\Database\Eloquent\Casts\AsArrayObject;
-use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Storage;
@@ -18,7 +17,6 @@ use Thoughtco\StatamicStacheSqlite\Models\Concerns\StoreAsFlatfile;
 
 class Asset extends Model
 {
-    use HasUuids;
     use StoreAsFlatfile;
 
     public static $driver = 'stache';
