@@ -9,6 +9,8 @@ use Statamic\Facades\Site;
 use Statamic\Facades\Taxonomy;
 use Statamic\Stache\Repositories\TermRepository as StacheRepository;
 use Statamic\Support\Str;
+use Statamic\Taxonomies\LocalizedTerm;
+use Thoughtco\StatamicStacheSqlite\Models\Term as TermModel;
 
 class TermRepository extends StacheRepository
 {
@@ -98,7 +100,11 @@ class TermRepository extends StacheRepository
 
     public function save($term)
     {
-        $model = $term->toModel();
+        $model = $term->model() ?? TermModel::find($term->id()) ?? TermModel::make();
+
+        $model
+            ->fromContract($term);
+
         $model->save();
 
         $term->model($model);

@@ -6,7 +6,7 @@ use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\DB;
 use Statamic\Contracts\Assets\AssetRepository as AssetRepositoryContract;
 use Statamic\Contracts\Entries\EntryRepository as EntryRepositoryContract;
-use Statamic\Contracts\Entries\TermRepository as TermRepositoryContract;
+use Statamic\Contracts\Taxonomies\TermRepository as TermRepositoryContract;
 use Statamic\Providers\AddonServiceProvider;
 use Statamic\Statamic;
 use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
@@ -118,10 +118,10 @@ class ServiceProvider extends AddonServiceProvider
         );
 
         $this->app->bind(
-            Terms\TermsQueryBuilder::class,
+            Terms\TermQueryBuilder::class,
             function ($app) {
-                return new Terms\TermsQueryBuilder(
-                    builder: Models\Terms::query()
+                return new Terms\TermQueryBuilder(
+                    builder: Models\Term::query()
                 );
             }
         );
