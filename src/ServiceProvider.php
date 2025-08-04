@@ -52,7 +52,8 @@ class ServiceProvider extends AddonServiceProvider
         }
 
         $this->registerAssetRepository()
-            ->registerEntryRepository();
+            ->registerEntryRepository()
+            ->registerTermRepository();
     }
 
     public function register()

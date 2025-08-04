@@ -171,7 +171,7 @@ class Term extends Model
         return [$data, $term];
     }
 
-    public function fromContract(TermContract $entry)
+    public function fromContract(TermContract $term)
     {
         $model = $this;
         if (($id = $term->id()) && ! $this->id) {
@@ -189,7 +189,12 @@ class Term extends Model
             $model->$key = $term->{$key}();
         }
 
-        $model->data = $term->data();
+        $data = [];
+        foreach ($term->localizations() as $handle => $localization) {
+            $data[$handle] = $localization->data();
+        }
+
+        $model->data = collect($data);
         $model->path = Str::of($term->buildPath())->after($model->getFlatfileRootDirectory().DIRECTORY_SEPARATOR)->beforeLast('.'.$this->fileExtension())->value();
         $model->uri = $term->uri();
 
@@ -244,8 +249,11 @@ class Term extends Model
     {
         $localizations = clone $this->data;
 
+        $taxonomy = Blink::once("taxonomy-{$this->taxonomy}", fn () => Taxonomy::findByHandle($this->taxonomy));
+        $defaultLocale = $taxonomy->sites()->first();
+
         $array = Arr::removeNullValues(
-            $localizations->pull($this->defaultLocale())->all()
+            $localizations->pull($defaultLocale)->all()
         );
 
         // todo: add published bool (for each locale?)
