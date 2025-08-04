@@ -21,6 +21,7 @@ class ServiceProvider extends AddonServiceProvider
             $database = Flatfile::getDatabasePath();
 
             if (! $fs->exists($database) && $database !== ':memory:') {
+                $fs->ensureDirectoryExists(dirname($database));
                 $fs->put($database, '');
             }
 

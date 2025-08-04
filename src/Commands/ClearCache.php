@@ -30,12 +30,17 @@ class ClearCache extends Command
     public function handle()
     {
         $path = Flatfile::getDatabasePath();
+        $paths = [
+            $path,
+            $path . '-shm',
+            $path . '-wal',
+        ];
 
-        if (! file_exists($path)) {
-            return;
+        foreach ($paths as $path) {
+            if (file_exists($path) && !unlink($path)) {
+                $this->components->error("Failed to delete file: $path");
+            }
         }
-
-        unlink($path);
 
         $this->components->info('Its gone...');
     }
