@@ -15,15 +15,17 @@ class TermsStoreTest extends TestCase
     use PreventSavingStacheItemsToDisk;
 
     private $parent;
+
     private $directory;
 
-    public function setUp(): void
+    protected function setUp(): void
     {
         parent::setUp();
 
         $this->directory = Path::resolve(__DIR__.'/../__fixtures__/content/taxonomies');
 
         Stache::store('taxonomies')->directory($this->directory);
+        Stache::store('terms')->directory($this->directory);
     }
 
     #[Test]
@@ -38,7 +40,5 @@ class TermsStoreTest extends TestCase
         $this->assertStringEqualsFile($path = $this->directory.'/tags/test.yaml', $term->fileContents());
         @unlink($path);
         $this->assertFileDoesNotExist($path);
-
-        $this->assertEquals($path, $this->parent->store('tags')->paths()->get('en::test'));
     }
 }

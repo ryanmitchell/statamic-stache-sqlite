@@ -16,6 +16,7 @@ use Statamic\Contracts\Taxonomies\Term as TermContract;
 use Statamic\Entries\GetSlugFromPath;
 use Statamic\Facades\Blink;
 use Statamic\Facades\Stache;
+use Statamic\Facades\Taxonomy;
 use Statamic\Facades\YAML;
 use Statamic\Support\Arr;
 use Statamic\Support\Str;
@@ -182,8 +183,11 @@ class Term extends Model
             $model = $this;
         }
 
-        $model->blueprint = $term->blueprint()->handle();
-        $model->taxonomy = $term->taxonomyHandle();
+        $taxonomyHandle = $term->taxonomyHandle();
+        $model->taxonomy = $taxonomyHandle;
+
+        $taxonomy = Blink::once("taxonomy-{$taxonomyHandle}", fn () => Taxonomy::findByHandle($taxonomyHandle));
+        $model->blueprint = $taxonomy->termBlueprint()->handle() != $term->blueprint() ? $term->blueprint()->handle() : null;
 
         foreach (['id', 'slug'] as $key) {
             $model->$key = $term->{$key}();
@@ -215,7 +219,11 @@ class Term extends Model
         $path = Arr::pull($data, 'path');
 
         $taxonomyHandle = $data['taxonomy'];
-        // $taxonomy = Blink::once("taxonomy-{$taxonomyHandle}", fn () => Taxonomy::findByHandle($taxonomyHandle));
+        $taxonomy = Blink::once("taxonomy-{$taxonomyHandle}", fn () => Taxonomy::findByHandle($taxonomyHandle));
+
+        if ($data['blueprint'] == $taxonomy->termBlueprint()->handle()) {
+            unset($data['blueprint']);
+        }
 
         $term = (new \Thoughtco\StatamicStacheSqlite\Terms\Term)
             ->taxonomy($taxonomyHandle)
@@ -271,6 +279,6 @@ class Term extends Model
 
     public function fileExtension()
     {
-        return 'md';
+        return 'yaml';
     }
 }

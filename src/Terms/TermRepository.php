@@ -122,6 +122,6 @@ class TermRepository extends StacheRepository
 
     protected function ensureAssociations()
     {
-         // don't need this to do anything now
+        // don't need this to do anything now
     }
 }
