@@ -187,7 +187,9 @@ trait StoreAsFlatfile
         // @TODO: if we dont do the below we save nearly 50% of processing on my demo site... I would love to find ways to remove it!
 
         // ensure we update in the sequence the repository needs
-        while ($afterInsert->isNotEmpty()) {
+        $lastCount = $afterInsert->count();
+        $continueLoop = true;
+        while ($continueLoop) {
             foreach ($afterInsert as $index => $row) {
                 $values = $row['updateAfterInsert']($insertedIds);
 
@@ -199,6 +201,12 @@ trait StoreAsFlatfile
                 $insertedIds[] = $row['id'];
                 $afterInsert->forget($index);
             }
+
+            if ($afterInsert->isEmpty() || ($afterInsert->count() === $lastCount)) { // prevent infinite loops
+                $continueLoop = false;
+            }
+
+            $lastCount = $afterInsert->count();
         }
 
         Flatfile::isMigrating(false);
