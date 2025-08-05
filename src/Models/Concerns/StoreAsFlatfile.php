@@ -23,6 +23,8 @@ trait StoreAsFlatfile
 
     protected static $blueprintColumns;
 
+    public static bool $runMigrationsIfNecessary = true;
+
     public function getPathKeyName(): string
     {
         return 'path';
@@ -40,9 +42,11 @@ trait StoreAsFlatfile
         $model = (new static);
 
         if (
-            Flatfile::databaseUpdatedAt()->lte(Carbon::createFromTimestamp(filemtime($modelFile))) ||
-            $driver->shouldRestoreCache($model, static::getFlatfileResolvers()) ||
-            ! Flatfile::connection()->getSchemaBuilder()->hasTable($model->getTable())
+            static::$runMigrationsIfNecessary && (
+                Flatfile::databaseUpdatedAt()->lte(Carbon::createFromTimestamp(filemtime($modelFile))) ||
+                $driver->shouldRestoreCache($model, static::getFlatfileResolvers()) ||
+                ! Flatfile::connection()->getSchemaBuilder()->hasTable($model->getTable())
+            )
         ) {
             $model->migrate();
         }

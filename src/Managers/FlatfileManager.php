@@ -34,20 +34,24 @@ class FlatfileManager extends Manager
 
     public function databaseUpdatedAt($datetime = null)
     {
+        $key = 'statamic::flatfile_updated_at';
+
         if ($datetime) {
-            cache()->forever('statamic_stache_updated_at', $datetime);
+            cache()->forever($key, $datetime);
+
+            return $this;
         }
 
         // Default to a very old date if the cache is not set
-        return cache()->get('statamic_stache_updated_at', now()->subCenturies(100));
+        return cache()->get($key, now()->subCenturies(100));
     }
 
     public function clear()
     {
-        if (! empty($this->connection()->getSchemaBuilder()->getTables())) {
-            // Disconnect the connection to avoid issues with dropping tables
-            $this->connection()->disconnect();
-            $this->connection()->getSchemaBuilder()->dropAllTables();
+        foreach ([Asset::class, Entry::class] as $model) {
+            $model::$runMigrationsIfNecessary = false;
+            $this->connection()->getSchemaBuilder()->dropIfExists((new $model)->getTable());
+            $model::$runMigrationsIfNecessary = true;
         }
     }
 
