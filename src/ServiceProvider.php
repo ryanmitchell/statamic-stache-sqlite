@@ -15,6 +15,16 @@ class ServiceProvider extends AddonServiceProvider
 {
     public function bootAddon()
     {
+        Flatfile::connection()->listen(function (QueryExecuted $query) {
+            // If the query is an INSERT, UPDATE, or DELETE, we consider it a modification
+            $updated = collect(['insert', 'update', 'delete'])
+                ->reduce(fn ($carry, $type) => $carry || str_starts_with(strtolower($query->sql), $type), false);
+
+            if ($updated) {
+                Flatfile::databaseUpdatedAt(now());
+            }
+        });
+
         if (Flatfile::connection()->getDriverName() === 'sqlite') {
             $this->setupSqlite();
         }
@@ -26,7 +36,7 @@ class ServiceProvider extends AddonServiceProvider
     public function setupSqlite()
     {
         $connection = Flatfile::connection();
-        $path = config('database.connections.' . Flatfile::getDatabaseName() . '.database');
+        $path = config('database.connections.'.Flatfile::getDatabaseName().'.database');
         $fs = new Filesystem;
 
         if (! $fs->exists($path) && $path !== ':memory:') {
@@ -63,22 +73,12 @@ class ServiceProvider extends AddonServiceProvider
             return $manager;
         });
 
-        $this->app['config']->set('database.connections.' . Flatfile::getDatabaseName(), [
+        $this->app['config']->set('database.connections.'.Flatfile::getDatabaseName(), [
             'driver' => 'sqlite',
             'database' => storage_path('statamic/cache/stache.sqlite'),
             'foreign_key_constraints' => false,
-            ...config('database.connections.' . Flatfile::getDatabaseName(), []),
+            ...config('database.connections.'.Flatfile::getDatabaseName(), []),
         ]);
-
-        Flatfile::connection()->listen(function (QueryExecuted $query) {
-            // If the query is an INSERT, UPDATE, or DELETE, we consider it a modification
-            $updated = collect(['insert', 'update', 'delete'])
-                ->reduce(fn ($carry, $type) => $carry || str_starts_with(strtolower($query->sql), $type), false);
-
-            if ($updated) {
-                Flatfile::databaseUpdatedAt(now());
-            }
-        });
     }
 
     private function registerEntryRepository()
