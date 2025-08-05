@@ -63,7 +63,7 @@ class Term extends Model
                         continue;
                     }
 
-                    if ($file->getExtension() !== 'md') {
+                    if ($file->getExtension() !== 'yaml') {
                         continue;
                     }
 
@@ -148,13 +148,20 @@ class Term extends Model
             ])->all(),
             ...$yamlData->only($columns)->all(),
             ...$data,
-            ...$yamlData->except($columns)->all(),
+            ...['data' => $yamlData->except($columns)->all()],
         ];
 
         $data['path'] = $path;
+        if (! $data['id']) {
+            $data['id'] = $data['taxonomy'].'::'.$data['slug'];
+        }
+
         $id = $data['id'];
 
-        $term = $this->makeInstanceFromData($data);
+        if (! $term = $this->makeInstanceFromData($data)) {
+            return [null, null];
+        }
+
         Blink::put("term-{$id}", $term);
 
         if ($term->collection()) {
@@ -222,7 +229,16 @@ class Term extends Model
         $path = Arr::pull($data, 'path');
 
         $taxonomyHandle = $data['taxonomy'];
+
+        if ($taxonomyHandle == '.') {
+            return;
+        }
+
         $taxonomy = Blink::once("taxonomy-{$taxonomyHandle}", fn () => Taxonomy::findByHandle($taxonomyHandle));
+
+        if (! $taxonomy) {
+            return;
+        }
 
         if ($data['blueprint'] == $taxonomy->termBlueprint()->handle()) {
             unset($data['blueprint']);

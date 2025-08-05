@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Statamic\Console\RunsInPlease;
 use Thoughtco\StatamicStacheSqlite\Models\Asset;
 use Thoughtco\StatamicStacheSqlite\Models\Entry;
+use Thoughtco\StatamicStacheSqlite\Models\Term;
 
 use function Laravel\Prompts\spin;
 
@@ -35,6 +36,7 @@ class BuildCache extends Command
         spin(function () {
             (new Asset);
             (new Entry);
+            (new Term);
         }, message: 'Warming the flatfile stache...');
 
         $this->components->info('Its warm and ready');

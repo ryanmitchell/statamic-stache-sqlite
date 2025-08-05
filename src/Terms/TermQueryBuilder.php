@@ -31,7 +31,7 @@ class TermQueryBuilder extends EloquentQueryBuilder
             $contract = Blink::once("term-{$model->id}", fn () => $model->makeContract());
 
             if ($this->site) {
-                return [$contract->in($site)];
+                return [$contract->in($this->site)];
             }
 
             return $contract->localizations()->values();
@@ -157,19 +157,17 @@ class TermQueryBuilder extends EloquentQueryBuilder
 
     public function find($id, $columns = ['*'])
     {
-        $model = parent::find($id, $columns);
-
-        if ($model) {
-            if (! $site = $this->site) {
-                $site = Site::default()->handle();
-            }
-
-            dd($model); // this isnt a model surely?
-
-            return app(TermContract::class)::fromModel($model)
-                ->in($site)
-                ->selectedQueryColumns($columns);
+        if (! $model = parent::find($id, $columns)) {
+            return;
         }
+
+        if (! $site = $this->site) {
+            $site = Site::default()->handle();
+        }
+
+        return app(TermContract::class)::fromModel($model)
+            ->in($site)
+            ->selectedQueryColumns($columns);
     }
 
     public function get($columns = ['*'])
