@@ -6,6 +6,7 @@ use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Filesystem\Filesystem;
 use Statamic\Contracts\Assets\AssetRepository as AssetRepositoryContract;
 use Statamic\Contracts\Entries\EntryRepository as EntryRepositoryContract;
+use Statamic\Contracts\Taxonomies\TermRepository as TermRepositoryContract;
 use Statamic\Providers\AddonServiceProvider;
 use Statamic\Statamic;
 use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
@@ -34,7 +35,8 @@ class ServiceProvider extends AddonServiceProvider
         }
 
         $this->registerAssetRepository()
-            ->registerEntryRepository();
+            ->registerEntryRepository()
+            ->registerTermRepository();
     }
 
     public function setupSqlite()
@@ -85,6 +87,25 @@ class ServiceProvider extends AddonServiceProvider
         ]);
     }
 
+    private function registerAssetRepository()
+    {
+        Statamic::repository(
+            abstract: AssetRepositoryContract::class,
+            concrete: Assets\AssetRepository::class
+        );
+
+        $this->app->bind(
+            Assets\AssetQueryBuilder::class,
+            function ($app) {
+                return new Assets\AssetQueryBuilder(
+                    builder: Models\Asset::query()
+                );
+            }
+        );
+
+        return $this;
+    }
+
     private function registerEntryRepository()
     {
         Statamic::repository(
@@ -104,18 +125,18 @@ class ServiceProvider extends AddonServiceProvider
         return $this;
     }
 
-    private function registerAssetRepository()
+    private function registerTermRepository()
     {
         Statamic::repository(
-            abstract: AssetRepositoryContract::class,
-            concrete: Assets\AssetRepository::class
+            abstract: TermRepositoryContract::class,
+            concrete: Terms\TermRepository::class
         );
 
         $this->app->bind(
-            Assets\AssetQueryBuilder::class,
+            Terms\TermQueryBuilder::class,
             function ($app) {
-                return new Assets\AssetQueryBuilder(
-                    builder: Models\Asset::query()
+                return new Terms\TermQueryBuilder(
+                    builder: Models\Term::query()
                 );
             }
         );

@@ -4,8 +4,7 @@ namespace Thoughtco\StatamicStacheSqlite\Managers;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Manager;
-use Thoughtco\StatamicStacheSqlite\Models\Asset;
-use Thoughtco\StatamicStacheSqlite\Models\Entry;
+use Thoughtco\StatamicStacheSqlite\Models;
 
 class FlatfileManager extends Manager
 {
@@ -61,7 +60,7 @@ class FlatfileManager extends Manager
 
     public function clear()
     {
-        foreach ([Asset::class, Entry::class] as $model) {
+        foreach ([Models\Asset::class, Models\Entry::class, Models\Term::class] as $model) {
             $model::$runMigrationsIfNecessary = false;
             $this->connection()->getSchemaBuilder()->dropIfExists((new $model)->getTable());
             $model::$runMigrationsIfNecessary = true;
@@ -70,7 +69,8 @@ class FlatfileManager extends Manager
 
     public function warm()
     {
-        Asset::bootStoreAsFlatfile();
-        Entry::bootStoreAsFlatfile();
+        Models\Asset::bootStoreAsFlatfile();
+        Models\Entry::bootStoreAsFlatfile();
+        Models\Term::bootStoreAsFlatfile();
     }
 }

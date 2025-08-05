@@ -11,6 +11,7 @@ use Statamic\Facades\Asset;
 use Statamic\Facades\Blink;
 use Statamic\Facades\Entry;
 use Statamic\Facades\Stache;
+use Statamic\Facades\Term;
 use Statamic\Stache\Repositories\EntryRepository;
 use Statamic\Statamic;
 use Thoughtco\StatamicStacheSqlite\Facades\Flatfile;
@@ -45,9 +46,9 @@ class Benchmark extends Command
         intro('Running benchmarks for flatfile...');
 
         table(
-            headers: ['Assets', 'Entries'],
+            headers: ['Assets', 'Entries', 'Terms'],
             rows: [
-                [Asset::query()->count(), Entry::query()->count()],
+                [Asset::query()->count(), Entry::query()->count(), Term::query()->count()],
             ]
         );
 
@@ -71,8 +72,8 @@ class Benchmark extends Command
         info('SQLite');
 
         table(
-            headers: collect(range(1, 10))->map(fn ($i) => "Run $i")->all(),
-            rows: [$result]
+            headers: collect(range(1, 10))->map(fn ($i) => "Run $i")->push('Avg')->all(),
+            rows: [[...$result, collect($result)->avg()]]
         );
     }
 
@@ -104,8 +105,8 @@ class Benchmark extends Command
         info('Stache');
 
         table(
-            headers: collect(range(1, 10))->map(fn ($i) => "Run $i")->all(),
-            rows: [$result]
+            headers: collect(range(1, 10))->map(fn ($i) => "Run $i")->push('Avg')->all(),
+            rows: [[...$result, collect($result)->avg()]]
         );
     }
 }
