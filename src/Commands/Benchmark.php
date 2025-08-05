@@ -72,8 +72,8 @@ class Benchmark extends Command
         info('SQLite');
 
         table(
-            headers: collect(range(1, 10))->map(fn ($i) => "Run $i")->all(),
-            rows: [$result]
+            headers: collect(range(1, 10))->map(fn ($i) => "Run $i")->push('Avg')->all(),
+            rows: [[...$result, collect($result)->avg()]]
         );
     }
 
@@ -105,8 +105,8 @@ class Benchmark extends Command
         info('Stache');
 
         table(
-            headers: collect(range(1, 10))->map(fn ($i) => "Run $i")->all(),
-            rows: [$result]
+            headers: collect(range(1, 10))->map(fn ($i) => "Run $i")->push('Avg')->all(),
+            rows: [[...$result, collect($result)->avg()]]
         );
     }
 }
