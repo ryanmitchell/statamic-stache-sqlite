@@ -5,6 +5,7 @@ namespace Thoughtco\StatamicStacheSqlite\Models\Concerns;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Str;
 use ReflectionClass;
@@ -21,6 +22,8 @@ trait StoreAsFlatfile
     protected $schemaColumns;
 
     protected static $blueprintColumns;
+
+    public static bool $runMigrationsIfNecessary = true;
 
     public function getPathKeyName(): string
     {
@@ -39,10 +42,11 @@ trait StoreAsFlatfile
         $model = (new static);
 
         if (
-            Flatfile::isTesting() ||
-            filemtime($modelFile) > filemtime(Flatfile::getDatabasePath()) ||
-            $driver->shouldRestoreCache($model, static::getFlatfileResolvers()) ||
-            ! static::resolveConnection()->getSchemaBuilder()->hasTable($model->getTable())
+            static::$runMigrationsIfNecessary && (
+                Flatfile::databaseUpdatedAt()->lte(Carbon::createFromTimestamp(filemtime($modelFile))) ||
+                $driver->shouldRestoreCache($model, static::getFlatfileResolvers()) ||
+                ! Flatfile::connection()->getSchemaBuilder()->hasTable($model->getTable())
+            )
         ) {
             $model->migrate();
         }
@@ -99,7 +103,7 @@ trait StoreAsFlatfile
             return parent::resolveConnection($connection);
         }
 
-        return static::$resolver->connection('statamic');
+        return Flatfile::connection();
     }
 
     public function getConnectionName()
@@ -108,15 +112,17 @@ trait StoreAsFlatfile
             return parent::getConnectionName();
         }
 
-        return 'statamic';
+        return Flatfile::getDatabaseName();
     }
 
     public function migrate()
     {
+        Flatfile::isMigrating(true);
+
         $table = $this->getTable();
 
         /** @var \Illuminate\Database\Schema\Builder $schema */
-        $schema = static::resolveConnection()->getSchemaBuilder();
+        $schema = Flatfile::connection()->getSchemaBuilder();
 
         if ($schema->hasTable($table)) {
             $schema->drop($table);
@@ -160,6 +166,14 @@ trait StoreAsFlatfile
                             $insertedIds[] = $row['id'];
                         }
 
+                        if (empty($row['created_at'])) {
+                            $row['created_at'] = null;
+                        }
+
+                        if (empty($row['updated_at'])) {
+                            $row['updated_at'] = null;
+                        }
+
                         unset($row['updateAfterInsert']);
 
                         return $row;
@@ -185,6 +199,9 @@ trait StoreAsFlatfile
                 $afterInsert->forget($index);
             }
         }
+
+        Flatfile::isMigrating(false);
+        Flatfile::databaseUpdatedAt(now());
     }
 
     protected function getSchemaColumns(): array
@@ -193,7 +210,7 @@ trait StoreAsFlatfile
             return $this->schemaColumns;
         }
 
-        $this->schemaColumns = static::resolveConnection()->getSchemaBuilder()->getColumnListing($this->getTable());
+        $this->schemaColumns = Flatfile::connection()->getSchemaBuilder()->getColumnListing($this->getTable());
 
         return $this->schemaColumns;
     }

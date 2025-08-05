@@ -141,14 +141,14 @@ class Entry extends Model
         $collection = Str::after($collection, $path);
 
         if (Site::multiEnabled()) {
-            [$collection, $site] = explode('/', $collection);
+            [$collection, $site] = explode(DIRECTORY_SEPARATOR, $collection);
         } else {
             $site = Site::default()->handle(); // sorry Erin, did it this way to avoid calling default every time
         }
 
         // Support entries within subdirectories at any level.
-        if (str_contains($collection, '/')) {
-            $collection = Str::before($collection, '/');
+        if (str_contains($collection, DIRECTORY_SEPARATOR)) {
+            $collection = Str::before($collection, DIRECTORY_SEPARATOR);
         }
 
         return [$collection, $site];
