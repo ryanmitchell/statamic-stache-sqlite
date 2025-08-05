@@ -98,8 +98,6 @@ class Term extends Model
             })
             ->all();
 
-        Blink::put("term-{$this->id}", $contract);
-
         foreach ($attributes as $key => $value) {
             if (in_array($key, ['created_at', 'updated_at', 'file_path_read_from', 'path', 'uri', 'values'])) {
                 continue;
@@ -113,6 +111,12 @@ class Term extends Model
                 $contract->$key($value);
             }
         }
+
+        foreach (Arr::pull($this->data, 'localizations', []) as $locale => $localeData) {
+            $contract->dataForLocale($locale, $localeData);
+        }
+
+        Blink::put("term-{$this->id}", $contract);
 
         return $contract;
     }
@@ -162,8 +166,6 @@ class Term extends Model
             return [null, null];
         }
 
-        Blink::put("term-{$id}", $term);
-
         if ($term->collection()) {
             $data['updateAfterInsert'] = function ($insertedIds) use ($term) {
                 if (! $uri = $term->uri()) {
@@ -203,9 +205,10 @@ class Term extends Model
         $defaultLocale = $taxonomy->sites()->first();
         $localizations = $term->localizations();
 
-        $data = $localizations->pull($defaultLocale)->data();
+        $data = $localizations->pull($defaultLocale)->data()->all();
+        $data['localizations'] = [];
         foreach ($localizations as $handle => $localization) {
-            $data[$handle] = $localization->data();
+            $data['localizations'][$handle] = $localization->data()->all();
         }
 
         $model->data = collect($data);
