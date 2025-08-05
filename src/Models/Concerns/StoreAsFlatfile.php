@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Str;
 use ReflectionClass;
@@ -316,6 +317,11 @@ trait StoreAsFlatfile
         return $content === null
             ? YAML::dump($data)
             : YAML::dumpFrontMatter(Arr::except($data, 'content'), $content);
+    }
+
+    public function getLastModifiedTimeFromPath($handle, $path): int
+    {
+        return File::lastModified($path);
     }
 
     protected function shouldRemoveNullsFromFileData()

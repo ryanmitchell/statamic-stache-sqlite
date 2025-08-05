@@ -3,7 +3,6 @@
 namespace Thoughtco\StatamicStacheSqlite\Drivers;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\LazyCollection;
 use Statamic\Entries\GetSuffixFromPath;
 use Statamic\Entries\RemoveSuffixFromPath;
@@ -22,11 +21,11 @@ class StacheDriver implements Driver
             return false;
         }
 
-        $databaseLastUpdated = Flatfile::databaseUpdatedAt();
+        $databaseLastUpdated = Flatfile::databaseUpdatedAt()->timestamp;
 
-        foreach ($resolvers as $fileResolver) {
+        foreach ($resolvers as $handle => $fileResolver) {
             foreach ($fileResolver() as $file) {
-                if ($databaseLastUpdated->lt(Carbon::createFromTimestamp($file->getMTime()))) {
+                if ($databaseLastUpdated < $model->getLastModifiedTimeFromPath($handle, $file)) {
                     return true;
                 }
             }

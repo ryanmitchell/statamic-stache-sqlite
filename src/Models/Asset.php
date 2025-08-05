@@ -40,7 +40,7 @@ class Asset extends Model
     public static function getFlatfileResolvers()
     {
         return AssetContainer::all()
-            ->mapWithKeys(fn ($container) => [$container->handle => fn () => $container->files()]) // map files to be prefixed with the disk_handle:: so we can get the container in fromPath below
+            ->mapWithKeys(fn ($container) => [$container->handle => fn () => $container->files()])
             ->all();
     }
 
@@ -146,6 +146,11 @@ class Asset extends Model
         $model->path = $asset->path();
 
         return $model;
+    }
+
+    public function getLastModifiedTimeFromPath($handle, $path): int
+    {
+        return Storage::disk(AssetContainer::findByHandle($handle)->disk)->lastModified($path);
     }
 
     public function makeItemFromFile($path, $contents)
