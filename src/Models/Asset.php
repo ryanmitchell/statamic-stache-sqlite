@@ -96,7 +96,7 @@ class Asset extends Model
 
         $data = array_merge(
             collect($columns)->mapWithKeys(fn ($value) => [
-                $value => Arr::get(collect(static::$blueprintColumns)->firstWhere('name', $value)?->toArray() ?? [], 'default', ''),
+                $value => Arr::get(static::$blueprintColumns->firstWhere('name', $value)?->toArray() ?? [], 'default', ''),
             ])->all(),
             collect($yamlData)->only($columns)->all(),
             $pathinfo,

@@ -194,7 +194,7 @@ class Entry extends Model
 
         $data = [
             ...collect($columns)->mapWithKeys(fn ($value) => [
-                $value => Arr::get(collect(static::$blueprintColumns)->firstWhere('name', $value)?->toArray() ?? [], 'default', ''),
+                $value => Arr::get(static::$blueprintColumns->firstWhere('name', $value)?->toArray() ?? [], 'default', ''),
             ])->all(),
             ...$yamlData->only($columns)->all(),
             ...$data,
