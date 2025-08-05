@@ -117,6 +117,8 @@ trait StoreAsFlatfile
 
     public function migrate()
     {
+        Flatfile::isMigrating(true);
+
         $table = $this->getTable();
 
         /** @var \Illuminate\Database\Schema\Builder $schema */
@@ -164,7 +166,6 @@ trait StoreAsFlatfile
                             $insertedIds[] = $row['id'];
                         }
 
-                        // Fix empty string values for created_at and updated_at
                         if (empty($row['created_at'])) {
                             $row['created_at'] = null;
                         }
@@ -198,6 +199,9 @@ trait StoreAsFlatfile
                 $afterInsert->forget($index);
             }
         }
+
+        Flatfile::isMigrating(false);
+        Flatfile::databaseUpdatedAt(now());
     }
 
     protected function getSchemaColumns(): array

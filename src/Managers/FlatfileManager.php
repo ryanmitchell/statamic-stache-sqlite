@@ -11,6 +11,8 @@ class FlatfileManager extends Manager
 {
     protected $connection = null;
 
+    protected bool $isMigrating = false;
+
     public function getDefaultDriver()
     {
         return 'stache';
@@ -19,6 +21,17 @@ class FlatfileManager extends Manager
     public function getDatabaseName()
     {
         return 'statamic';
+    }
+
+    public function isMigrating(?bool $value = null)
+    {
+        if (count(func_get_args()) == 0) {
+            return $this->isMigrating;
+        }
+
+        $this->isMigrating = $value;
+
+        return $this->isMigrating;
     }
 
     public function connection($connection = null)

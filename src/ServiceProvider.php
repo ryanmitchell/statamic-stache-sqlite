@@ -16,6 +16,10 @@ class ServiceProvider extends AddonServiceProvider
     public function bootAddon()
     {
         Flatfile::connection()->listen(function (QueryExecuted $query) {
+            if (Flatfile::isMigrating()) {
+                return;
+            }
+
             // If the query is an INSERT, UPDATE, or DELETE, we consider it a modification
             $updated = collect(['insert', 'update', 'delete'])
                 ->reduce(fn ($carry, $type) => $carry || str_starts_with(strtolower($query->sql), $type), false);
