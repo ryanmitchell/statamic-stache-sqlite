@@ -147,7 +147,7 @@ trait StoreAsFlatfile
                 $table->timestamps();
             }
 
-            static::$blueprintColumns = $table->getColumns();
+            static::$blueprintColumns = collect($table->getColumns());
         });
 
         $driver = Flatfile::driver(static::getFlatfileDriver());
@@ -226,7 +226,13 @@ trait StoreAsFlatfile
                 try {
                     $this->setAttribute($key, $value);
 
-                    return $this->attributes[$key];
+                    $value = $this->attributes[$key];
+
+                    if (! is_array($value)) {
+                        return $value;
+                    }
+
+                    return json_encode($value);
                 } catch (\Exception $e) {
                     dd($value, $key, $row);
                 }
