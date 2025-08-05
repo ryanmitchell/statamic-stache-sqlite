@@ -2,36 +2,75 @@
 
 namespace Thoughtco\StatamicStacheSqlite\Managers;
 
-use Illuminate\Support\Facades\App;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Manager;
+use Thoughtco\StatamicStacheSqlite\Models\Asset;
+use Thoughtco\StatamicStacheSqlite\Models\Entry;
 
 class FlatfileManager extends Manager
 {
-    protected $testing = false;
+    protected $connection = null;
 
-    public function test()
-    {
-        $this->testing = true;
-
-        return $this;
-    }
-
-    public function isTesting()
-    {
-        return $this->testing === true || App::environment('testing');
-    }
+    protected bool $isMigrating = false;
 
     public function getDefaultDriver()
     {
         return 'stache';
     }
 
-    public function getDatabasePath()
+    public function getDatabaseName()
     {
-        if ($this->isTesting()) {
-            return ':memory:';
+        return 'statamic';
+    }
+
+    public function isMigrating(?bool $value = null)
+    {
+        if (count(func_get_args()) == 0) {
+            return $this->isMigrating;
         }
 
-        return storage_path('statamic/cache/stache.sqlite');
+        $this->isMigrating = $value;
+
+        return $this->isMigrating;
+    }
+
+    public function connection($connection = null)
+    {
+        if ($connection) {
+            $this->connection = $connection;
+        } else {
+            $this->connection ??= DB::connection($this->getDatabaseName());
+        }
+
+        return $this->connection;
+    }
+
+    public function databaseUpdatedAt($datetime = null)
+    {
+        $key = 'statamic::flatfile_updated_at';
+
+        if ($datetime) {
+            cache()->forever($key, $datetime);
+
+            return $this;
+        }
+
+        // Default to a very old date if the cache is not set
+        return cache()->get($key, now()->subCenturies(100));
+    }
+
+    public function clear()
+    {
+        foreach ([Asset::class, Entry::class] as $model) {
+            $model::$runMigrationsIfNecessary = false;
+            $this->connection()->getSchemaBuilder()->dropIfExists((new $model)->getTable());
+            $model::$runMigrationsIfNecessary = true;
+        }
+    }
+
+    public function warm()
+    {
+        Asset::bootStoreAsFlatfile();
+        Entry::bootStoreAsFlatfile();
     }
 }
