@@ -59,6 +59,14 @@ class StacheDriver implements Driver
                     continue;
                 }
 
+                if (empty($data['created_at'])) {
+                    $data['created_at'] = null;
+                }
+
+                if (empty($data['updated_at'])) {
+                    $data['updated_at'] = null;
+                }
+
                 yield [
                     ...$data,
                     ...[

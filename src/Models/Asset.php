@@ -113,15 +113,6 @@ class Asset extends Model
             $data['id'] = $data['container'].'::'.$data['path'];
         }
 
-        // Fix empty string values for created_at and updated_at
-        if (empty($data['created_at'])) {
-            $data['created_at'] = null;
-        }
-
-        if (empty($data['updated_at'])) {
-            $data['updated_at'] = null;
-        }
-
         $asset = $this->makeInstanceFromData($data);
 
         return [$data, $asset];
