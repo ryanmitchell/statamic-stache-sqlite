@@ -437,7 +437,7 @@ class TermTest extends TestCase
         Event::fake();
 
         $taxonomy = tap(Taxonomy::make('tags'))->save();
-        $term = (new Term)->taxonomy('tags');
+        $term = tap((new Term)->taxonomy('tags'))->save();
 
         $term->delete();
 
@@ -457,7 +457,7 @@ class TermTest extends TestCase
         });
 
         $taxonomy = tap(Taxonomy::make('tags'))->save();
-        $term = (new Term)->taxonomy('tags');
+        $term = tap((new Term)->taxonomy('tags'))->save();
 
         $return = $term->delete();
 
@@ -472,7 +472,7 @@ class TermTest extends TestCase
         Event::fake();
 
         $taxonomy = tap(Taxonomy::make('tags'))->save();
-        $term = (new Term)->taxonomy('tags');
+        $term = tap((new Term)->taxonomy('tags'))->save();
 
         $return = $term->deleteQuietly();
 

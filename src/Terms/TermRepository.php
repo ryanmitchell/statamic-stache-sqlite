@@ -9,7 +9,6 @@ use Statamic\Facades\Site;
 use Statamic\Facades\Taxonomy;
 use Statamic\Stache\Repositories\TermRepository as StacheRepository;
 use Statamic\Support\Str;
-use Statamic\Taxonomies\LocalizedTerm;
 use Thoughtco\StatamicStacheSqlite\Models\Term as TermModel;
 
 class TermRepository extends StacheRepository

@@ -72,7 +72,7 @@ class TermQueryBuilderTest extends TestCase
         Term::make('e')->taxonomy('tags')->data(['test' => 'raz'])->save();
 
         $terms = Term::query()->where('test', 'foo')->orWhere('test', 'bar')->get();
-        $this->assertEquals(['a', 'd', 'b'], $terms->map->slug()->values()->all());
+        $this->assertEquals(['a', 'b', 'd'], $terms->map->slug()->values()->all());
     }
 
     #[Test]
@@ -103,7 +103,7 @@ class TermQueryBuilderTest extends TestCase
 
         $terms = Term::query()->whereNotIn('test', ['foo', 'bar'])->orWhereNotIn('test', ['foo', 'raz'])->get();
 
-        $this->assertEquals(['c', 'f'], $terms->map->slug()->values()->all());
+        $this->assertEquals(['b', 'c', 'e', 'f'], $terms->map->slug()->values()->all());
     }
 
     #[Test]
@@ -475,12 +475,12 @@ class TermQueryBuilderTest extends TestCase
     {
         $this->createWhereDateTestTerms();
 
-        $entries = Term::query()->whereTime('test_date', '09:00')->get();
+        $entries = Term::query()->whereTime('test_date', '09:00:00')->get();
 
         $this->assertCount(1, $entries);
         $this->assertEquals(['Post 2'], $entries->map->title->all());
 
-        $entries = Term::query()->whereTime('test_date', '>', '09:00')->get();
+        $entries = Term::query()->whereTime('test_date', '>', '09:00:00')->get();
 
         $this->assertCount(2, $entries);
         $this->assertEquals(['Post 1', 'Post 4'], $entries->map->title->all());
@@ -570,7 +570,7 @@ class TermQueryBuilderTest extends TestCase
         $entries = Term::query()->whereJsonContains('test_taxonomy', ['taxonomy-1'])->orWhereJsonDoesntContain('test_taxonomy', ['taxonomy-5'])->get();
 
         $this->assertCount(4, $entries);
-        $this->assertEquals(['1', '3', '2', '4'], $entries->map->slug()->all());
+        $this->assertEquals(['1', '2', '3', '4'], $entries->map->slug()->all());
     }
 
     #[Test]
@@ -586,7 +586,7 @@ class TermQueryBuilderTest extends TestCase
         $entries = Term::query()->whereJsonLength('test_taxonomy', 1)->orWhereJsonLength('test_taxonomy', 3)->get();
 
         $this->assertCount(3, $entries);
-        $this->assertEquals(['2', '5', '4'], $entries->map->slug()->all());
+        $this->assertEquals(['2', '4', '5'], $entries->map->slug()->all());
     }
 
     #[Test]

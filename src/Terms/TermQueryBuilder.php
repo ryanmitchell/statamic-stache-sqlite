@@ -27,13 +27,14 @@ class TermQueryBuilder extends EloquentQueryBuilder
 
     protected function transform($items, $columns = [])
     {
-        $site = $this->site;
-        if (! $site) {
-            $site = Site::default()->handle();
-        }
+        return TermCollection::make($items)->flatMap(function ($model) {
+            $contract = Blink::once("term-{$model->id}", fn () => $model->makeContract());
 
-        return TermCollection::make($items)->map(function ($model) use ($site) {
-            return Blink::once("term-{$model->id}", fn () => $model->makeContract())->in($site);
+            if ($this->site) {
+                return [$contract->in($site)];
+            }
+
+            return $contract->localizations()->values();
         });
     }
 
@@ -191,7 +192,7 @@ class TermQueryBuilder extends EloquentQueryBuilder
                 return $term->in($this->site);
             }
 
-            return $term->inDefaultLocale();
+            return $term;
         });
     }
 

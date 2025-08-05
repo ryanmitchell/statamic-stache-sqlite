@@ -193,8 +193,11 @@ class Term extends Model
             $model->$key = $term->{$key}();
         }
 
-        $data = [];
-        foreach ($term->localizations() as $handle => $localization) {
+        $defaultLocale = $taxonomy->sites()->first();
+        $localizations = $term->localizations();
+
+        $data = $localizations->pull($defaultLocale)->data();
+        foreach ($localizations as $handle => $localization) {
             $data[$handle] = $localization->data();
         }
 
@@ -255,23 +258,14 @@ class Term extends Model
 
     public function fileData()
     {
-        $localizations = clone $this->data;
-
-        $taxonomy = Blink::once("taxonomy-{$this->taxonomy}", fn () => Taxonomy::findByHandle($this->taxonomy));
-        $defaultLocale = $taxonomy->sites()->first();
-
         $array = Arr::removeNullValues(
-            $localizations->pull($defaultLocale)->all()
+            $this->data->all(),
         );
 
         // todo: add published bool (for each locale?)
 
         if ($this->blueprint) {
             $array['blueprint'] = $this->blueprint;
-        }
-
-        if (! $localizations->isEmpty()) {
-            $array['localizations'] = $localizations->map->all()->all();
         }
 
         return $array;
