@@ -14,7 +14,7 @@ class ClearCache extends Command
 
     protected $signature = 'statamic:flatfile:clear';
 
-    protected $description = 'Build the flatfile SQL cache';
+    protected $description = 'Clear the flatfile SQL cache';
 
     public function handle()
     {
