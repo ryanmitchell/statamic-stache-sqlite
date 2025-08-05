@@ -44,7 +44,7 @@ class FlatfileManager extends Manager
 
     public function clear()
     {
-        if (!empty($this->connection()->getSchemaBuilder()->getTables())) {
+        if (! empty($this->connection()->getSchemaBuilder()->getTables())) {
             // Disconnect the connection to avoid issues with dropping tables
             $this->connection()->disconnect();
             $this->connection()->getSchemaBuilder()->dropAllTables();

@@ -40,7 +40,7 @@ abstract class TestCase extends AddonTestCase
             'path' => storage_path('framework/cache/outpost-data'),
         ]);
 
-        $app['config']->set('database.connections.' . Flatfile::getDatabaseName() . '.database', ':memory:');
+        $app['config']->set('database.connections.'.Flatfile::getDatabaseName().'.database', ':memory:');
     }
 
     protected function assertEveryItem($items, $callback)

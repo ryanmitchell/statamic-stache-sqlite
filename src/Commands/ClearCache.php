@@ -13,6 +13,7 @@ class ClearCache extends Command
     use RunsInPlease;
 
     protected $signature = 'statamic:flatfile:clear';
+
     protected $description = 'Build the flatfile SQL cache';
 
     public function handle()

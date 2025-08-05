@@ -160,7 +160,7 @@ trait StoreAsFlatfile
                             $insertedIds[] = $row['id'];
                         }
 
-                    // Fix empty string values for created_at and updated_at
+                        // Fix empty string values for created_at and updated_at
                         if (empty($row['created_at'])) {
                             $row['created_at'] = null;
                         }

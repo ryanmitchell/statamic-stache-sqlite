@@ -13,6 +13,7 @@ class BuildCache extends Command
     use RunsInPlease;
 
     protected $signature = 'statamic:flatfile:cache';
+
     protected $description = 'Build the flatfile SQL cache';
 
     public function handle()
