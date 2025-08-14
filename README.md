@@ -8,7 +8,7 @@ Flat files are maintained, so can be Git committed, but you get database perform
 ### Installing
 This has intentionally not been added to packagist. 
 
-So install add the following to your composer.json:
+So to install add the following to your composer.json:
 
 ```json
     "repositories": [
