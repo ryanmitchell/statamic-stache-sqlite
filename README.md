@@ -25,7 +25,7 @@ Once installed, entries, assets and terms will run from an SQLite database in `s
 
 ### Configuration
 
-If you want to specify or control the database connection you can specify a connection called `statamic` in your datase config file.
+If you want to specify or control the database connection you can specify a connection called `statamic` in your database config file.
 
 ### Commands
 
