@@ -41,7 +41,7 @@ This is the equivalent of stache:clear - it empties your database.
 
 `php please statamic:flatfile:benchmark`
 
-This command will benchmark flatfiles vs stach on your install, giving you a handy output for comparing 10 flatfile:warm runs versus 10 stache:warm runs.
+This command will benchmark flatfiles vs stache on your install, giving you a handy output for comparing 10 flatfile:warm runs versus 10 stache:warm runs.
 
 
 
