@@ -39,6 +39,12 @@ This is the equivalent of stache:warm - it fills your database with all the data
 This is the equivalent of stache:clear - it empties your database.
 
 
+`php please statamic:flatfile:benchmark`
+
+This command will benchmark flatfiles vs stach on your install, giving you a handy output for comparing 10 flatfile:warm runs versus 10 stache:warm runs.
+
+
+
 ### Feedback
 
 This is an opinionated experiment, so while feedback is welcomed and valued it may be ignored. Please don't be offended if that happens.
