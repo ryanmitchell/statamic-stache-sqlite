@@ -53,7 +53,7 @@ class EntryQueryBuilder extends EloquentQueryBuilder implements QueryBuilder
         // If no IDs were queried, fall back to all collections.
         $ids->isEmpty()
             ? $this->whereIn('collection', Collection::handles())
-            : $this->whereIn('collection', app(static::class)->whereIn('id', $ids)->pluck('collection')->unique()->values());
+            : $this->whereIn('collection', \Thoughtco\StatamicStacheSqlite\Models\Entry::query()->whereIn('id', $ids)->distinct('collection')->pluck('collection')->values());
     }
 
     public function find($id, $columns = ['*'])
@@ -108,21 +108,21 @@ class EntryQueryBuilder extends EloquentQueryBuilder implements QueryBuilder
     }
 
     // @TODO: this has been raised as a PR to core, once merged it can be removed
-    public function whereTime($column, $operator, $value = null, $boolean = 'and')
-    {
-        [$value, $operator] = $this->prepareValueAndOperator(
-            $value, $operator, func_num_args() === 2
-        );
-
-        // ensure value is h:m:s
-        if (! ($value instanceof DateTimeInterface)) {
-            $value = Carbon::parse($value);
-        }
-
-        $value = $value->format('H:i:s'); // we only care about the time part
-
-        parent::whereTime($column, $operator, $value, $boolean);
-
-        return $this;
-    }
+//    public function whereTime($column, $operator, $value = null, $boolean = 'and')
+//    {
+//        [$value, $operator] = $this->prepareValueAndOperator(
+//            $value, $operator, func_num_args() === 2
+//        );
+//
+//        // ensure value is h:m:s
+//        if (! ($value instanceof DateTimeInterface)) {
+//            $value = Carbon::parse($value);
+//        }
+//
+//        $value = $value->format('H:i:s'); // we only care about the time part
+//
+//        parent::whereTime($column, $operator, $value, $boolean);
+//
+//        return $this;
+//    }
 }
